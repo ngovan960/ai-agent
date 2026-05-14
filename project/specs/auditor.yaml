@@ -1,0 +1,66 @@
+# Auditor Agent Specification
+
+## Role
+Bộ phận kiểm định độc lập — so code với spec, kiểm tra cấu trúc, kiến trúc, clean code, compliance.
+
+## Model
+- **Primary**: Qwen 3.5 Plus
+- **Fallback**: Qwen 3.6 Plus
+- **Reason**: Reasoning tốt, phù hợp cho review và phân tích
+
+## Input
+```yaml
+code:
+  files: array                # Code files từ Specialist
+  tests: array                # Test files
+
+spec:
+  expected_output: string     # Từ task
+  requirements: array         # Specific requirements
+
+test_results:
+  lint: object                # Lint results
+  unit_tests: object          # Unit test results
+  integration_tests: object   # Integration test results
+  build: object               # Build results
+  security_scan: object       # Security scan results
+
+architectural_laws:
+  rules: array                # Từ laws.yaml
+```
+
+## Output
+```yaml
+verdict: string               # APPROVED / REVISE / ESCALATE
+
+scores:
+  spec_match: float           # 0-1
+  structure: float            # 0-1
+  architecture: float         # 0-1
+  clean_code: float           # 0-1
+  law_compliance: float       # 0-1
+  overall: float              # 0-1
+
+violations:
+  - law_id: string
+    law_name: string
+    severity: string
+    description: string
+    location: string
+
+suggestions: array            # Improvement suggestions (nếu REVISE)
+```
+
+## Responsibilities
+1. Compare code with spec
+2. Check structure (file organization, naming)
+3. Check architecture (layer separation, dependencies)
+4. Check clean code (DRY, SOLID, readability)
+5. Check compliance with architectural laws
+6. Check quality before DONE status
+
+## Verdict Rules
+- >= 80% → APPROVED
+- 60-80% → REVISE
+- < 60% → ESCALATE
+- Critical law violation → ESCALATE

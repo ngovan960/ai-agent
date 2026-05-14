@@ -1,0 +1,292 @@
+# Model Capabilities Registry - AI SDLC System v4
+# Dynamic routing: models are NOT fixed to agents.
+# Router selects best model based on task profile, capabilities, cost, and context.
+
+models:
+  deepseek_v4_flash:
+    name: "DeepSeek V4 Flash"
+    provider: "deepseek"
+    api_endpoint: "${DEEPSEEK_API_ENDPOINT}"
+    api_key_env: "DEEPSEEK_API_KEY"
+    context_window: 131072          # 131K tokens
+    max_output_tokens: 8192
+    temperature: 0.1
+    cost_per_1k_input_tokens: 0.0001
+    cost_per_1k_output_tokens: 0.0003
+    timeout_seconds: 15
+    speed_category: "very_fast"
+
+    # Capability scores (0-100)
+    capabilities:
+      code: 40
+      reasoning: 35
+      classification: 70
+      review: 35
+      planning: 30
+      monitoring: 65
+      speed: 95
+      cost_efficiency: 95
+
+    strengths:
+      - "Fastest response time"
+      - "Lowest cost per token"
+      - "Good for simple classification tasks"
+    weaknesses:
+      - "Limited context window (131K)"
+      - "Weak at complex reasoning"
+      - "Not suitable for code generation"
+    best_for: ["classification", "routing", "simple_tasks", "monitoring"]
+    avoid_for: ["code_generation", "strategic_reasoning", "complex_review"]
+
+  deepseek_v4_pro:
+    name: "DeepSeek V4 Pro"
+    provider: "deepseek"
+    api_endpoint: "${DEEPSEEK_API_ENDPOINT}"
+    api_key_env: "DEEPSEEK_API_KEY"
+    context_window: 1000000         # 1M tokens
+    max_output_tokens: 8192
+    temperature: 0.1
+    cost_per_1k_input_tokens: 0.00043
+    cost_per_1k_output_tokens: 0.00087
+    timeout_seconds: 60
+    speed_category: "medium"
+
+    capabilities:
+      code: 75
+      reasoning: 65
+      classification: 70
+      review: 65
+      planning: 60
+      monitoring: 55
+      speed: 60
+      cost_efficiency: 85
+
+    strengths:
+      - "Strong code generation"
+      - "Large context window (1M)"
+      - "Very cost-effective for capability"
+      - "Balanced across tasks"
+    weaknesses:
+      - "Math reasoning weaker than peers"
+      - "Slower than Flash"
+    best_for: ["code_generation", "implementation", "devops", "fallback"]
+    avoid_for: ["strategic_decisions", "complex_math"]
+
+  qwen_3_5_plus:
+    name: "Qwen 3.5 Plus"
+    provider: "qwen"
+    api_endpoint: "${QWEN_API_ENDPOINT}"
+    api_key_env: "QWEN_API_KEY"
+    context_window: 262144          # 262K tokens
+    max_output_tokens: 8192
+    temperature: 0.1
+    cost_per_1k_input_tokens: 0.00039
+    cost_per_1k_output_tokens: 0.00234
+    timeout_seconds: 60
+    speed_category: "medium"
+
+    capabilities:
+      code: 65
+      reasoning: 65
+      classification: 60
+      review: 70
+      planning: 65
+      monitoring: 50
+      speed: 55
+      cost_efficiency: 60
+
+    strengths:
+      - "Good at code review and analysis"
+      - "Balanced capabilities"
+      - "Reasonable cost"
+    weaknesses:
+      - "Not exceptional in any area"
+      - "Slower than Flash and MiniMax"
+      - "Context window limited (262K)"
+    best_for: ["code_review", "quality_assurance", "analysis"]
+    avoid_for: ["fast_classification", "large_context_tasks"]
+
+  qwen_3_6_plus:
+    name: "Qwen 3.6 Plus"
+    provider: "qwen"
+    api_endpoint: "${QWEN_API_ENDPOINT}"
+    api_key_env: "QWEN_API_KEY"
+    context_window: 1000000         # 1M tokens
+    max_output_tokens: 16384
+    temperature: 0.1
+    cost_per_1k_input_tokens: 0.00033
+    cost_per_1k_output_tokens: 0.00195
+    timeout_seconds: 90
+    speed_category: "slow"
+
+    capabilities:
+      code: 80
+      reasoning: 80
+      classification: 55
+      review: 75
+      planning: 85
+      monitoring: 45
+      speed: 35
+      cost_efficiency: 75
+
+    strengths:
+      - "Best strategic reasoning"
+      - "Best at planning and orchestration"
+      - "Large context window (1M)"
+      - "Good at complex decisions"
+    weaknesses:
+      - "Slowest response time"
+      - "Instruction following weaker than expected"
+      - "Higher cost for long outputs"
+    best_for: ["strategic_reasoning", "planning", "mentor_decisions", "orchestration"]
+    avoid_for: ["fast_classification", "simple_tasks", "cost_sensitive_tasks"]
+
+  minimax_m2_7:
+    name: "MiniMax M2.7"
+    provider: "minimax"
+    api_endpoint: "${MINIMAX_API_ENDPOINT}"
+    api_key_env: "MINIMAX_API_KEY"
+    context_window: 196608          # 196K tokens
+    max_output_tokens: 8192
+    temperature: 0.1
+    cost_per_1k_input_tokens: 0.00026
+    cost_per_1k_output_tokens: 0.00120
+    timeout_seconds: 30
+    speed_category: "fast"
+
+    capabilities:
+      code: 70
+      reasoning: 60
+      classification: 65
+      review: 60
+      planning: 55
+      monitoring: 75
+      speed: 80
+      cost_efficiency: 90
+
+    strengths:
+      - "Good code generation capability"
+      - "Fast response time"
+      - "Very cost-effective"
+      - "Reasonable context window (196K)"
+    weaknesses:
+      - "Less proven in production"
+      - "Text/math benchmarks unknown"
+      - "Smaller ecosystem"
+    best_for: ["monitoring", "continuous_tasks", "cost_sensitive_code", "fallback"]
+    avoid_for: ["strategic_decisions", "complex_review"]
+
+# Default routing table (used when scoring algorithm is not available)
+default_routing:
+  classification:
+    primary: "deepseek_v4_flash"
+    fallback_1: "minimax_m2_7"
+    fallback_2: "deepseek_v4_pro"
+    llm_path: "litellm"
+
+  code_generation:
+    primary: "deepseek_v4_pro"
+    fallback_1: "qwen_3_6_plus"
+    fallback_2: "minimax_m2_7"
+    llm_path: "opencode"
+
+  review:
+    primary: "qwen_3_5_plus"
+    fallback_1: "qwen_3_6_plus"
+    fallback_2: "deepseek_v4_pro"
+    llm_path: "litellm"
+
+  planning:
+    primary: "qwen_3_6_plus"
+    fallback_1: "deepseek_v4_pro"
+    fallback_2: "qwen_3_5_plus"
+    llm_path: "litellm"
+
+  decision:
+    primary: "qwen_3_6_plus"
+    fallback_1: "deepseek_v4_pro"
+    fallback_2: "minimax_m2_7"
+    llm_path: "litellm"
+
+  monitoring:
+    primary: "minimax_m2_7"
+    fallback_1: "deepseek_v4_flash"
+    fallback_2: "qwen_3_5_plus"
+    llm_path: "litellm"
+
+# Fallback chain per model
+fallback_rules:
+  deepseek_v4_flash:
+    fallback_1: "minimax_m2_7"
+    fallback_2: "deepseek_v4_pro"
+  deepseek_v4_pro:
+    fallback_1: "qwen_3_6_plus"
+    fallback_2: "minimax_m2_7"
+  qwen_3_5_plus:
+    fallback_1: "qwen_3_6_plus"
+    fallback_2: "deepseek_v4_pro"
+  qwen_3_6_plus:
+    fallback_1: "deepseek_v4_pro"
+    fallback_2: "minimax_m2_7"
+  minimax_m2_7:
+    fallback_1: "deepseek_v4_pro"
+    fallback_2: "qwen_3_5_plus"
+
+# Circuit breaker configuration
+circuit_breaker:
+  failure_threshold: 5
+  recovery_timeout_seconds: 60
+  half_open_max_calls: 3
+  per_model:
+    deepseek_v4_flash:
+      failure_threshold: 5
+      recovery_timeout_seconds: 30
+    deepseek_v4_pro:
+      failure_threshold: 5
+      recovery_timeout_seconds: 60
+    qwen_3_5_plus:
+      failure_threshold: 5
+      recovery_timeout_seconds: 60
+    qwen_3_6_plus:
+      failure_threshold: 3
+      recovery_timeout_seconds: 90
+    minimax_m2_7:
+      failure_threshold: 5
+      recovery_timeout_seconds: 45
+
+# Retry policy
+retry_policy:
+  max_retries: 3
+  backoff_multiplier: 2
+  initial_delay_seconds: 1
+  retryable_errors:
+    - "timeout"
+    - "rate_limit"
+    - "server_error"
+  non_retryable_errors:
+    - "authentication_failed"
+    - "invalid_request"
+    - "context_length_exceeded"
+
+# Environment variables
+environment_variables:
+  required:
+    - DEEPSEEK_API_ENDPOINT
+    - DEEPSEEK_API_KEY
+    - QWEN_API_ENDPOINT
+    - QWEN_API_KEY
+    - MINIMAX_API_ENDPOINT
+    - MINIMAX_API_KEY
+    - DATABASE_URL
+    - REDIS_URL
+    - JWT_SECRET
+  optional:
+    - LOG_LEVEL
+    - EMBEDDING_MODEL
+
+metadata:
+  version: "4.0.0"
+  created_at: "2026-05-15"
+  last_updated: "2026-05-15"
+  total_models: 5
+  change_from_v3: "Removed GLM 5.1, Kimi K2.6, MiMo-v2.5-Pro. Added MiniMax M2.7. Implemented dynamic routing."

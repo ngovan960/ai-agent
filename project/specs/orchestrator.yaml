@@ -1,0 +1,68 @@
+# Orchestrator Agent Specification
+
+## Role
+Bộ não điều phối toàn hệ thống — hiểu trạng thái, chia task, chọn agent, điều phối workflow.
+
+## Model
+- **Primary**: Qwen 3.6 Plus
+- **Fallback**: Qwen 3.5 Plus
+- **Reason**: Reasoning tốt, tổ chức workflow tốt
+
+## Input
+```yaml
+classified_task:
+  task_id: uuid
+  parsed_request: object      # Từ Gatekeeper
+  complexity_score: int       # 1-10
+  routing_decision: string    # easy/medium/hard
+  memory_results: array       # Past solutions
+
+project_state:
+  modules: array              # Current modules status
+  tasks: array                # Current tasks status
+  dependencies: object        # Dependency graph
+  blockers: array             # Current blockers
+```
+
+## Output
+```yaml
+task_breakdown:
+  - title: string
+    description: string
+    expected_output: string
+    dependencies: array       # Task IDs
+    priority: string          # LOW/MEDIUM/HIGH/CRITICAL
+
+dependency_graph:
+  nodes: array                # Task nodes
+  edges: array                # Dependency edges
+
+agent_assignments:
+  - task_id: uuid
+    agent: string             # specialist/auditor/devops
+    model: string             # Model name
+
+workflow_plan:
+  execution_order: array      # Ordered task list
+  parallel_tasks: array       # Tasks that can run in parallel
+  estimated_duration: string  # Estimated time
+```
+
+## Responsibilities
+1. Understand project state (modules, tasks, dependencies)
+2. Break down task into subtasks
+3. Identify dependencies between subtasks
+4. Select appropriate agent for each subtask
+5. Create workflow execution plan
+6. Decide when to review, retry, escalate, or takeover
+
+## Rules
+- Không được chia task quá nhỏ (min scope per task)
+- Phải xác định dependencies trước khi assign
+- Phải chọn agent phù hợp với complexity
+- Không được bỏ qua memory lookup
+
+## Error Handling
+- Nếu không thể chia task → escalate đến Mentor
+- Nếu dependency circular → detect và báo lỗi
+- Nếu agent không available → queue hoặc fallback

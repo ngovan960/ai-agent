@@ -1,0 +1,57 @@
+# Mentor Agent Specification
+
+## Role
+Cấp cao nhất — xử lý deadlock, quyết định chiến lược, giải quyết mâu thuẫn, final verdict.
+
+## Model
+- **Primary**: Qwen 3.6 Plus
+- **Reason**: Model mạnh nhất, reasoning tốt nhất
+
+## Input
+```yaml
+task_history:
+  retries: array              # All retry attempts
+  audits: array               # All audit results
+  logs: array                 # All audit logs
+
+conflict_details:
+  spec: object                # Original spec
+  code: object                # Current code
+  review: object              # Review results
+
+memory:
+  past_decisions: array       # Past similar decisions
+  lessons_learned: array      # Relevant lessons
+```
+
+## Output
+```yaml
+verdict: string               # APPROVED / REJECT / MODIFY
+
+resolution_plan:              # Nếu MODIFY
+  - action: string
+    description: string
+    priority: string
+
+lesson_learned:
+  type: string                # advice/warning/decision/pattern
+  content: string
+  context: object
+```
+
+## Responsibilities
+1. Handle deadlock (circular dependency, retry loop)
+2. Make strategic decisions (spec vs code vs review conflict)
+3. Resolve conflicts between spec, code, and review
+4. Refactor workflow if needed
+5. Deliver final verdict
+
+## Rules
+- Chỉ được kích hoạt khi task bị escalate
+- Quyết định của Mentor là **final** — không được retry
+- Phải lưu lesson learned sau mỗi decision
+- Có giới hạn quota (max calls per day)
+
+## Quota
+- Max calls per day: 10
+- If exceeded → queue or reject

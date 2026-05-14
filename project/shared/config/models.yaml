@@ -1,0 +1,189 @@
+# Model Configuration - AI SDLC System v4
+# Dynamic routing: models are NOT fixed to agents.
+# See model_capabilities.yaml for full capability registry.
+# API endpoints are loaded from environment variables, NOT hardcoded here.
+
+models:
+  deepseek_v4_flash:
+    name: "DeepSeek V4 Flash"
+    provider: "deepseek"
+    api_endpoint: "${DEEPSEEK_API_ENDPOINT}"
+    api_key_env: "DEEPSEEK_API_KEY"
+    max_tokens: 4096
+    temperature: 0.1
+    cost_per_1k_input_tokens: 0.0001
+    cost_per_1k_output_tokens: 0.0003
+    timeout_seconds: 15
+    speed: "very_fast"
+    strength: "classification, routing, simple tasks"
+
+  deepseek_v4_pro:
+    name: "DeepSeek V4 Pro"
+    provider: "deepseek"
+    api_endpoint: "${DEEPSEEK_API_ENDPOINT}"
+    api_key_env: "DEEPSEEK_API_KEY"
+    max_tokens: 8192
+    temperature: 0.1
+    cost_per_1k_input_tokens: 0.00043
+    cost_per_1k_output_tokens: 0.00087
+    timeout_seconds: 60
+    speed: "medium"
+    strength: "code generation, logic, implementation"
+
+  qwen_3_5_plus:
+    name: "Qwen 3.5 Plus"
+    provider: "qwen"
+    api_endpoint: "${QWEN_API_ENDPOINT}"
+    api_key_env: "QWEN_API_KEY"
+    max_tokens: 8192
+    temperature: 0.1
+    cost_per_1k_input_tokens: 0.00039
+    cost_per_1k_output_tokens: 0.00234
+    timeout_seconds: 60
+    speed: "medium"
+    strength: "review, analysis, quality assurance"
+
+  qwen_3_6_plus:
+    name: "Qwen 3.6 Plus"
+    provider: "qwen"
+    api_endpoint: "${QWEN_API_ENDPOINT}"
+    api_key_env: "QWEN_API_KEY"
+    max_tokens: 16384
+    temperature: 0.1
+    cost_per_1k_input_tokens: 0.00033
+    cost_per_1k_output_tokens: 0.00195
+    timeout_seconds: 90
+    speed: "slow"
+    strength: "strategic reasoning, planning, complex decisions"
+
+  minimax_m2_7:
+    name: "MiniMax M2.7"
+    provider: "minimax"
+    api_endpoint: "${MINIMAX_API_ENDPOINT}"
+    api_key_env: "MINIMAX_API_KEY"
+    max_tokens: 8192
+    temperature: 0.1
+    cost_per_1k_input_tokens: 0.00026
+    cost_per_1k_output_tokens: 0.00120
+    timeout_seconds: 30
+    speed: "fast"
+    strength: "monitoring, cost-effective tasks, fallback"
+
+# Dynamic routing: model selected based on task profile, not fixed to agent
+# See docs/dynamic-model-router.md for routing algorithm
+default_routing:
+  classification:
+    primary: "deepseek_v4_flash"
+    fallback_1: "minimax_m2_7"
+    fallback_2: "deepseek_v4_pro"
+  code_generation:
+    primary: "deepseek_v4_pro"
+    fallback_1: "qwen_3_6_plus"
+    fallback_2: "minimax_m2_7"
+  review:
+    primary: "qwen_3_5_plus"
+    fallback_1: "qwen_3_6_plus"
+    fallback_2: "deepseek_v4_pro"
+  planning:
+    primary: "qwen_3_6_plus"
+    fallback_1: "deepseek_v4_pro"
+    fallback_2: "qwen_3_5_plus"
+  decision:
+    primary: "qwen_3_6_plus"
+    fallback_1: "deepseek_v4_pro"
+    fallback_2: "minimax_m2_7"
+  monitoring:
+    primary: "minimax_m2_7"
+    fallback_1: "deepseek_v4_flash"
+    fallback_2: "qwen_3_5_plus"
+
+fallback_rules:
+  deepseek_v4_flash:
+    fallback: "minimax_m2_7"
+  deepseek_v4_pro:
+    fallback: "qwen_3_6_plus"
+  qwen_3_5_plus:
+    fallback: "qwen_3_6_plus"
+  qwen_3_6_plus:
+    fallback: "deepseek_v4_pro"
+  minimax_m2_7:
+    fallback: "deepseek_v4_pro"
+
+circuit_breaker:
+  failure_threshold: 5
+  recovery_timeout_seconds: 60
+  half_open_max_calls: 3
+  models:
+    deepseek_v4_flash:
+      failure_threshold: 5
+      recovery_timeout_seconds: 30
+    deepseek_v4_pro:
+      failure_threshold: 5
+      recovery_timeout_seconds: 60
+    qwen_3_5_plus:
+      failure_threshold: 5
+      recovery_timeout_seconds: 60
+    qwen_3_6_plus:
+      failure_threshold: 3
+      recovery_timeout_seconds: 90
+    minimax_m2_7:
+      failure_threshold: 5
+      recovery_timeout_seconds: 45
+
+retry_policy:
+  max_retries: 3
+  backoff_multiplier: 2
+  initial_delay_seconds: 1
+  retryable_errors:
+    - "timeout"
+    - "rate_limit"
+    - "server_error"
+  non_retryable_errors:
+    - "authentication_failed"
+    - "invalid_request"
+    - "context_length_exceeded"
+
+mentor_quota:
+  max_calls_per_day: 10
+  enforcement: "strict"
+  overflow_action: "reject"
+
+embedding_models:
+  default: "text-embedding-3-small"
+  models:
+    - name: "text-embedding-3-small"
+      provider: "openai"
+      dimensions: 1536
+      api_key_env: "OPENAI_API_KEY"
+      cost_per_1k_tokens: 0.00002
+    - name: "bge-large-en-v1.5"
+      provider: "local"
+      dimensions: 1024
+      cost_per_1k_tokens: 0
+    - name: "bge-m3"
+      provider: "local"
+      dimensions: 1024
+      cost_per_1k_tokens: 0
+
+environment_variables:
+  required:
+    - DEEPSEEK_API_ENDPOINT
+    - DEEPSEEK_API_KEY
+    - QWEN_API_ENDPOINT
+    - QWEN_API_KEY
+    - MINIMAX_API_ENDPOINT
+    - MINIMAX_API_KEY
+    - DATABASE_URL
+    - REDIS_URL
+    - JWT_SECRET
+  optional:
+    - OPENAI_API_ENDPOINT
+    - LOG_LEVEL
+    - EMBEDDING_MODEL
+
+metadata:
+  version: "4.0.0"
+  created_at: "2026-05-15"
+  last_updated: "2026-05-15"
+  total_models: 5
+  change_from_v3: "Removed GLM 5.1, Kimi K2.6, MiMo-v2.5-Pro. Added MiniMax M2.7. Implemented dynamic routing."

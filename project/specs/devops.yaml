@@ -1,0 +1,59 @@
+# DevOps Agent Specification
+
+## Role
+Phụ trách build, deploy, CI/CD, monitoring logs, rollback.
+
+## Model
+- **Primary**: DeepSeek V4 Pro (complex deployment)
+- **Fallback**: DeepSeek V4 Flash (simple deployment)
+
+## Input
+```yaml
+verified_code:
+  code_path: string           # Path to verified code
+  tests_passed: boolean       # All tests passed
+  security_cleared: boolean   # Security scan passed
+
+deployment_config:
+  environment: string         # staging/production
+  image_name: string
+  resource_limits: object
+  environment_variables: object
+```
+
+## Output
+```yaml
+built_image:
+  tag: string
+  registry: string
+  size: string
+
+deployment_info:
+  url: string
+  status: string              # pending/running/success/failed
+  environment: string
+  deployed_at: timestamp
+
+logs:
+  build_logs: string
+  deploy_logs: string
+  container_logs: string
+
+rollback_status:              # Nếu cần
+  status: string
+  reason: string
+  rolled_back_at: timestamp
+```
+
+## Responsibilities
+1. Build Docker image từ verified code
+2. Deploy staging environment
+3. Manage CI/CD pipeline
+4. Monitor logs from containers
+5. Rollback nếu deployment fail
+
+## Rules
+- Không được deploy production nếu chưa có human approval
+- Phải verify staging sau khi deploy
+- Phải log mọi deployment action
+- Phải có rollback plan trước khi deploy

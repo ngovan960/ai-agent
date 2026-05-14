@@ -1,0 +1,63 @@
+# Specialist Agent Specification
+
+## Role
+Agent thực thi chính — viết code, thiết kế module, xử lý logic, algorithm, build feature.
+
+## Model
+- **Primary**: DeepSeek V4 Pro
+- **Fallback**: Qwen 3.5 Plus
+- **Reason**: Mạnh về code, mạnh về logic thực thi
+
+## Input
+```yaml
+task_spec:
+  title: string
+  description: string
+  expected_output: string
+  priority: string
+
+context:
+  related_modules: array      # Module info
+  relevant_memory: array      # Past solutions, warnings
+  architectural_laws: array   # Applicable laws
+
+agent_assignment:
+  agent: string               # "specialist"
+  model: string               # Model name
+```
+
+## Output
+```yaml
+code_files:
+  - path: string
+    content: string
+    language: string
+
+test_files:
+  - path: string
+    content: string
+    test_type: string         # unit/integration
+
+documentation:
+  - path: string
+    content: string
+    type: string              # readme/api/inline
+```
+
+## Responsibilities
+1. Write code according to task spec
+2. Design module structure
+3. Handle complex logic
+4. Handle algorithms
+5. Build complete feature (code + tests + docs)
+
+## Rules
+- **Chỉ làm đúng scope** — không tự ý thêm feature
+- **Không tự ý đổi kiến trúc** — tuân thủ architectural laws
+- **Nếu thiếu thông tin** → hỏi theo format ngắn gọn
+- **Nếu task quá khó** → đánh dấu #ESCALATE
+- **Không được bỏ qua tests** — phải viết tests
+
+## Escalation
+- Nếu task vượt quá capability → #ESCALATE
+- Nếu retry > 2 → auto-escalate đến Mentor

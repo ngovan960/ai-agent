@@ -1,0 +1,155 @@
+# Architectural Laws - AI SDLC System
+# These rules govern all agent behavior and code generation
+# Violations trigger audit failures and task rejection
+# Version: 2.0.0
+
+rules:
+  - id: LAW-001
+    name: No business logic in controller
+    severity: high
+    description: Controllers must only receive requests, call services, and return responses. All business logic must reside in service layer.
+    check_rule: "controller must not contain business logic - only request/response handling"
+    category: architecture
+
+  - id: LAW-002
+    name: All APIs must validate input
+    severity: high
+    description: Every API endpoint must validate input using Pydantic models or equivalent validation layer before processing.
+    check_rule: "all endpoints must have input validation via Pydantic or equivalent"
+    category: security
+
+  - id: LAW-003
+    name: No direct DB access from UI
+    severity: high
+    description: UI components must only communicate through API endpoints. No database connection strings or direct queries in frontend code.
+    check_rule: "UI must not contain database connections or direct queries"
+    category: architecture
+
+  - id: LAW-004
+    name: Critical actions require human approval
+    severity: critical
+    description: Production deployments, data deletion, and schema changes must require explicit human approval before execution.
+    check_rule: "critical actions must have approval workflow"
+    category: governance
+
+  - id: LAW-005
+    name: No hardcoded secrets
+    severity: critical
+    description: Secrets, API keys, passwords, and credentials must never be hardcoded. Use environment variables or secret management services.
+    check_rule: "no hardcoded secrets, keys, or credentials in source code"
+    category: security
+
+  - id: LAW-006
+    name: All errors must be logged
+    severity: high
+    description: All errors and exceptions must be logged with context (task_id, agent, timestamp, stack trace) for audit and debugging.
+    check_rule: "all errors must be logged with full context"
+    category: observability
+
+  - id: LAW-007
+    name: API response time under 3 seconds
+    severity: medium
+    description: All API endpoints must respond within 3 seconds under normal load. Timeout handling must be implemented for slow operations.
+    check_rule: "API response time must be under 3 seconds"
+    category: performance
+
+  - id: LAW-008
+    name: No agent modifies architecture without approval
+    severity: critical
+    description: Only Mentor or Auditor agents may propose architecture changes. Specialist agents must follow existing architecture.
+    check_rule: "only Mentor/Auditor may propose architecture changes"
+    category: governance
+
+  - id: LAW-009
+    name: No DONE status without verification
+    severity: critical
+    description: A task may only be marked as DONE after passing sandbox verification (lint, tests, build, security scan). Exception: Mentor may approve ESCALATED -> DONE ONLY IF the task has a passed verification record from a prior run.
+    check_rule: "DONE status requires passing verification pipeline, OR Mentor override with verified output evidence"
+    exception: "ESCALATED -> DONE is allowed ONLY when task has verification_result = PASS in audit history. Mentor must cite the verification evidence in audit log."
+    category: governance
+
+  - id: LAW-010
+    name: No infinite retry loops
+    severity: high
+    description: Maximum 2 retries per task. After 2 failures, task must be escalated to Mentor. No agent may retry beyond this limit.
+    check_rule: "max 2 retries per task, then escalate to Mentor"
+    category: governance
+
+  - id: LAW-011
+    name: Scope adherence required
+    severity: medium
+    description: Agents must only implement what is specified in the task. No feature creep, no unauthorized additions.
+    check_rule: "agent output must match task scope exactly"
+    category: governance
+
+  - id: LAW-012
+    name: All state changes must be audited
+    severity: high
+    description: Every state transition, task update, and agent action must create an audit log entry with actor, timestamp, and result.
+    check_rule: "all state changes must have audit log entries"
+    category: observability
+
+  - id: LAW-013
+    name: All API endpoints require authentication
+    severity: critical
+    description: Every API endpoint must require authentication via API key or JWT token. No anonymous access except explicitly whitelisted health endpoints.
+    check_rule: "all endpoints require auth except GET /health and GET /docs"
+    category: security
+
+  - id: LAW-014
+    name: LLM calls must have circuit breaker
+    severity: high
+    description: All LLM API calls must go through a circuit breaker with timeout, retry with exponential backoff, and fallback model. If a model fails 5 consecutive times, circuit opens and fallback model is used.
+    check_rule: "all LLM calls must have circuit breaker, timeout, and fallback"
+    category: resilience
+
+  - id: LAW-015
+    name: No terminal state can be changed
+    severity: critical
+    description: Terminal states (DONE, FAILED, CANCELLED) are immutable. No task in a terminal state can transition to any other state. Only explicit rollback with human approval can restore a task.
+    check_rule: "terminal states are immutable, no transitions from DONE/FAILED/CANCELLED"
+    category: governance
+
+  - id: LAW-016
+    name: Embedding dimensions must be configurable
+    severity: medium
+    description: Vector embedding dimensions must not be hardcoded. Use embedding_config table to store dimensions per model. Schema must support multiple embedding models.
+    check_rule: "embedding dimensions must come from embedding_config, not hardcoded constants"
+    category: architecture
+
+  - id: LAW-017
+    name: Mentor quota must be enforced
+    severity: high
+    description: Mentor agent has a daily call limit (default 10). Calls exceeding quota must be rejected with clear error. Quota is tracked in mentor_quota table.
+    check_rule: "mentor calls must check quota before execution, reject if exceeded"
+    category: governance
+
+  - id: LAW-018
+    name: Confidence score must be clamped to [0, 1]
+    severity: medium
+    description: Confidence formula components must be weighted such that the result is always between 0 and 1. If calculation produces negative or >1, clamp to nearest boundary.
+    check_rule: "confidence = clamp(T*0.35 + L*0.15 - P*0.20 + A*0.30, 0, 1)"
+    category: governance
+
+  - id: LAW-019
+    name: All LLM calls must track cost and latency
+    severity: high
+    description: Every LLM API call must log input tokens, output tokens, cost, latency, model, agent name, and status to cost_tracking and llm_call_logs tables.
+    check_rule: "all LLM calls must be logged with full cost and latency details"
+    category: observability
+
+  - id: LAW-020
+    name: Dependencies must use junction tables
+    severity: medium
+    description: Task and module dependencies must use junction tables (task_dependencies, module_dependencies), not PostgreSQL array columns. This ensures referential integrity and efficient queries.
+    check_rule: "no UUID[] array columns for dependencies, use junction tables"
+    category: architecture
+
+metadata:
+  version: "2.0.0"
+  created_at: "2026-05-14"
+  last_updated: "2026-05-14"
+  total_rules: 20
+  critical_rules: 5
+  high_rules: 8
+  medium_rules: 7

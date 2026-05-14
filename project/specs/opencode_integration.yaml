@@ -1,0 +1,261 @@
+# OpenCode Integration Specification v3 - LLM + Tool Provider cho AI SDLC
+
+## Metadata
+- **Version**: 3.0.0
+- **Created**: 2026-05-14
+- **Last Updated**: 2026-05-15
+- **Key Change from v2**: OpenCode is no longer the brain — FastAPI backend handles all orchestration. OpenCode provides LLM access and tool execution.
+
+## Role
+
+OpenCode là **LLM + Tool Provider** cho hệ thống AI SDLC. FastAPI backend mới là bộ não — orchestrate toàn bộ workflow, state machine, agent dispatch. OpenCode cung cấp:
+
+1. **LLM Access**: Truy cập các model LLM (DeepSeek, Qwen) đã được cấu hình sẵn
+2. **Tool Execution**: Cung cấp tools thao tác filesystem và shell (bash, edit, write, read, glob, grep)
+
+## Architecture
+
+```
+┌──────────────────────────────────────────────────────────────┐
+│                  FastAPI Backend (BRAINS)                      │
+│                                                                │
+│  ┌─────────────┐  ┌─────────────┐  ┌──────────────────────┐ │
+│  │State Machine│  │Workflow     │  │   Agent Router       │ │
+│  │  Engine     │  │  Engine     │  │   & Dispatcher       │ │
+│  └──────┬──────┘  └──────┬──────┘  └──────────┬───────────┘ │
+│         └────────────────┼────────────────────┘              │
+│                          │                                    │
+│  ┌───────────────────────┴────────────────────────────────┐ │
+│  │                LLM Gateway                               │ │
+│  │  ┌──────────┐  ┌───────────┐  ┌───────────┐           │ │
+│  │  │ Circuit  │  │   Retry   │  │   Cost    │           │ │
+│  │  │ Breaker  │  │  w/ Backoff│  │ Tracker  │           │ │
+│  │  └──────────┘  └───────────┘  └───────────┘           │ │
+│  └──────────────────────┬─────────────────────────────────┘ │
+│                         │                                     │
+│  ┌──────────────────────┴──────────────────────────────────┐│
+│  │              Agent Runtime                                 ││
+│  │  Gatekeeper | Orchestrator | Specialist | Auditor        ││
+│  │  Mentor | DevOps | Monitoring                               ││
+│  └──────────────────────────────────────────────────────────┘│
+└──────────────────────────────┬────────────────────────────────┘
+                               │
+            ┌──────────────────┼──────────────────┐
+            ▼                  ▼                  ▼
+   ┌──────────────┐  ┌──────────────┐  ┌──────────────┐
+   │  PostgreSQL  │  │    Redis     │  │   OpenCode   │
+   │ (State,     │  │  (Cache,    │  │ (LLM + Tools)│
+   │  Audit,     │  │  Rate Limit)│  │              │
+   │  Memory)    │  └──────────────┘  └──────────────┘
+   └──────────────┘
+```
+
+## OpenCode as Provider
+
+### Capabilities Provided
+
+1. **LLM Access**
+   - DeepSeek V4 Flash (fast, cheap — Gatekeeper, Monitoring)
+   - DeepSeek V4 Pro (strong code — Specialist, DevOps)
+   - Qwen 3.5 Plus (good review — Auditor)
+   - Qwen 3.6 Plus (strong reasoning — Orchestrator, Mentor)
+
+2. **Tool Execution** (cho agents cần tools)
+   - bash: Run shell commands (lint, test, build, install)
+   - edit: Modify existing files
+   - write: Create new files
+   - read: Read file contents
+   - glob: Find files by pattern
+   - grep: Search file contents
+
+### Integration Flow
+
+```python
+# Pseudocode for FastAPI calling OpenCode
+async def call_agent_via_opencode(agent_name: str, task_data: dict):
+    # 1. FastAPI loads prompt template
+    prompt_template = load_prompt(f"agents/prompts/{agent_name}.txt")
+
+    # 2. FastAPI builds context
+    context = await build_context(agent_name, task_data)
+
+    # 3. FastAPI injects context into template
+    filled_prompt = inject_context(prompt_template, context)
+
+    # 4. FastAPI selects model
+    model = get_model_for_agent(agent_name)
+
+    # 5. FastAPI gets allowed tools for this agent
+    allowed_tools = get_allowed_tools(agent_name)
+
+    # 6. FastAPI calls OpenCode with prompt + tools
+    response = await opencode_call(
+        prompt=filled_prompt,
+        model=model,
+        tools=allowed_tools,
+        max_tokens=get_output_budget(agent_name),
+    )
+
+    # 7. FastAPI parses response and logs
+    parsed = parse_agent_response(agent_name, response)
+    await log_llm_call(task_data["task_id"], agent_name, model, response)
+
+    return parsed
+```
+
+## Input
+```yaml
+# FastAPI sends to OpenCode
+request:
+  prompt: string              # Filled prompt template
+  model: string               # Model to use (deepseek-v4-pro, qwen-3.6-plus, etc.)
+  tools: array                # Allowed tools for this agent
+  max_tokens: integer         # Output token budget
+  timeout: integer            # Timeout in seconds
+```
+
+## Output
+```yaml
+# OpenCode returns to FastAPI
+response:
+  content: string             # LLM response
+  tool_results: array         # Results from tool executions
+  tokens:
+    input: integer
+    output: integer
+  cost_usd: float
+  latency_ms: integer
+  status: "success|failed|timeout"
+```
+
+## Dev Mode (OpenCode Tools)
+
+### Tool Mapping per Agent
+| Agent | bash | edit | write | read | glob | grep | LLM Path |
+|---|---|---|---|---|---|---|---|
+| Gatekeeper | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | LiteLLM |
+| Orchestrator | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | LiteLLM |
+| Specialist | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | OpenCode |
+| Auditor | ✗ | ✗ | ✗ | ✓ | ✗ | ✓ | LiteLLM |
+| Mentor | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | LiteLLM |
+| DevOps | ✓ | ✗ | ✗ | ✓ | ✓ | ✓ | OpenCode |
+| Monitoring | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | LiteLLM |
+
+### Security: Tool Restrictions
+- Each agent type has a predefined tool allowlist
+- Specialist: full code access (bash, edit, write, read, glob, grep)
+- Auditor: read-only access (read, grep)
+- DevOps: bash (for build/deploy), read, glob, grep
+- Gatekeeper/Orchestrator/Mentor/Monitoring: no tools needed — FastAPI provides context via LLM Gateway
+
+### Dev Mode Workflow
+1. FastAPI receives task from user
+2. FastAPI builds context and fills prompt template
+3. FastAPI calls OpenCode with prompt + allowed tools
+4. OpenCode executes LLM call and tool executions
+5. OpenCode returns results to FastAPI
+6. FastAPI runs verification via OpenCode bash tool (lint, test, build)
+7. FastAPI updates state machine and creates audit log
+
+### Prod Mode (Docker Sandbox)
+1. FastAPI receives task from user
+2. FastAPI builds context and fills prompt template
+3. FastAPI calls OpenCode for code generation
+4. FastAPI creates Docker container with verified code
+5. FastAPI runs verification pipeline in container
+6. FastAPI captures logs and exit code
+7. FastAPI destroys container
+8. FastAPI updates state machine and creates audit log
+
+## Mode Selection
+
+### Auto Mode
+```yaml
+risk_level_selection:
+  LOW: "dev"
+  MEDIUM: "dev"
+  HIGH: "prod"
+  CRITICAL: "prod"
+```
+
+### Manual Override
+- User can force mode via API: `POST /api/v1/tasks/{task_id}/execute {"mode": "prod"}`
+- Useful for testing prod mode in dev environment
+
+## Context Builder
+
+### Context Priority (when context window is limited)
+1. Task description and expected output (always included)
+2. Related module code (high priority)
+3. Recent memory matches (high priority)
+4. Architectural laws (high priority)
+5. Past decisions (medium priority)
+6. Full project state (low priority, truncated)
+
+### Context Size Limits per Model
+| Model | Max Context | Reserved for Output | Available for Input |
+|---|---|---|---|
+| DeepSeek V4 Flash | 4096 | 1024 | 3072 |
+| DeepSeek V4 Pro | 8192 | 2048 | 6144 |
+| Qwen 3.5 Plus | 8192 | 2048 | 6144 |
+| Qwen 3.6 Plus | 16384 | 4096 | 12288 |
+
+## LLM Gateway Integration
+
+### Call Flow
+```
+FastAPI Agent Request → Context Builder → Prompt Renderer → Circuit Breaker Check
+    → Rate Limit Check → API Call (with timeout) → Response Parser
+    → Cost Logger → Response to FastAPI
+```
+
+### Failure Handling
+- Circuit breaker open → Use fallback model
+- Timeout → Retry with exponential backoff (max 3 retries)
+- Rate limited → Queue and retry after delay
+- Auth failed → Log error, escalate immediately
+
+## API (FastAPI endpoints — not OpenCode)
+
+### Execute Task
+```
+POST /api/v1/tasks/{task_id}/execute
+Body: {
+  "mode": "dev|prod|auto",
+  "timeout": 600,
+  "agent_override": null  # Optional: force specific agent
+}
+
+Response: {
+  "execution_id": "uuid",
+  "status": "running|success|failed|timeout",
+  "mode_used": "dev|prod",
+  "result": { ... }
+}
+```
+
+### Get Execution Status
+```
+GET /api/v1/executions/{execution_id}
+Response: {
+  "status": "success|failed|timeout",
+  "result": { ... },
+  "logs": { ... },
+  "cost": { ... }
+}
+```
+
+### Cancel Execution
+```
+POST /api/v1/executions/{execution_id}/cancel
+Response: {
+  "status": "cancelled",
+  "final_state": "CANCELLED"
+}
+```
+
+## Metadata
+- **Version**: 3.0.0
+- **Created**: 2026-05-14
+- **Last Updated**: 2026-05-15
+- **Key Change**: OpenCode is now LLM + Tool Provider, not the brain. FastAPI backend handles all orchestration.

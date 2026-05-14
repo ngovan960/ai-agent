@@ -1,0 +1,74 @@
+# Monitoring Agent Specification
+
+## Role
+Theo dõi lỗi, phát hiện anomaly, cảnh báo regressions, gom feedback thành bug report.
+
+## Model
+- **Primary**: DeepSeek Flash (continuous monitoring)
+- **Fallback**: GLM hoặc Qwen tùy ngữ cảnh
+- **Reason**: Rẻ, nhanh, phù hợp cho monitoring liên tục
+
+## Input
+```yaml
+logs:
+  container_logs: array       # Từ containers
+  agent_logs: array           # Từ agents
+  system_logs: array          # Từ system
+
+metrics:
+  task_duration: float        # Avg task duration
+  success_rate: float         # Task success rate
+  cost_per_task: float        # Avg cost per task
+  retry_rate: float           # Retry rate
+
+user_feedback:
+  reports: array              # User feedback reports
+
+historical_data:
+  baseline: object            # Historical baseline
+```
+
+## Output
+```yaml
+error_reports:
+  - error_type: string
+    frequency: int
+    affected_tasks: array
+    severity: string
+
+anomaly_alerts:
+  - type: string              # latency_spike, error_spike, etc.
+    description: string
+    severity: string
+    detected_at: timestamp
+
+regression_reports:
+  - metric: string
+    current_value: float
+    baseline_value: float
+    change_percent: float
+
+bug_reports:
+  - title: string
+    description: string
+    severity: string
+    affected_components: array
+
+improvement_suggestions:
+  - area: string
+    suggestion: string
+    expected_impact: string
+```
+
+## Responsibilities
+1. Track errors (grouping, frequency)
+2. Detect anomalies (spike in errors, latency)
+3. Alert regressions (vs baseline)
+4. Collect feedback into bug reports
+5. Suggest improvements based on trends
+
+## Rules
+- Phải monitor liên tục (24/7)
+- Phải alert ngay khi phát hiện critical issue
+- Phải gom feedback thành bug report có cấu trúc
+- Phải đề xuất improvement dựa trên trends
