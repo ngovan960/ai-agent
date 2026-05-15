@@ -288,10 +288,11 @@ uvicorn services.orchestrator.main:app --reload
 
 ---
 
-**Version**: 4.3.0
+**Version**: 4.4.0
 **Created**: 2026-05-14
-**Status**: Phase 0 Complete (v4), Phase 1 Partial (85%) — FastAPI CRUD APIs, ORM, Alembic, Redis, Validation Gate, Risk Mitigations, Retry/Audit Services
-**Phase 1 Progress**: 45+ files created, 45+ unit tests written, CRUD APIs for Projects/Modules/Tasks/Validation/Retry/Audit
+**Status**: Phase 0 Complete (v4), Phase 1 Partial (95%) — FastAPI CRUD APIs, ORM, Alembic, Redis, Validation Gate, Risk Mitigations, Retry/Audit Services, Integration Tests
+**Phase 1 Progress**: 48+ files created, 70+ tests (45 unit + 25+ integration), CRUD APIs for Projects/Modules/Tasks/Validation/Retry/Audit
 **v4.1 Change**: Added Dual-Model Validation Gate — cross-validation before NEW → ANALYZING transition
 **v4.2 Change**: Fixed 3 critical risks — State Bloat (optimistic locking), Context Window (priority truncation + Lost in the Middle), Dependency Blocked (timeout + notifications)
 **v4.3 Change**: Added Retry Tracking Service (max retries, can_retry, stats) + Audit Service (query logs, CSV export)
+**v4.4 Change**: Added 25+ integration tests — E2E workflow: Projects → Modules → Tasks → Transitions → Validation → Retry/Audit

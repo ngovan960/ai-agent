@@ -29,7 +29,7 @@ tasks/
 | Phase | Tên | Thời gian | Số tasks | Trạng thái |
 |---|---|---|---|---|
 | 0 | System Design | 1–2 tuần | 31 | ✅ Complete (v4.1) |
-| 1 | Core State System | 2–3 tuần | 56 | 🟡 Partial (85%) |
+| 1 | Core State System | 2–3 tuần | 56 | 🟡 Partial (95%) |
 | 2 | Workflow Engine | 2–3 tuần | 42 | ⬜ Pending |
 | 3 | Agent Runtime | 2–4 tuần | 55 | ⬜ Pending |
 | 4 | Verification Sandbox (Hybrid) | 2–3 tuần | 35 | ⬜ Pending |
@@ -122,7 +122,7 @@ Phase 1
 ## Links đến từng phase
 
 - [✅ Phase 0: System Design](./phase-0-system-design.md) — **COMPLETE (v4)**
-- [🟡 Phase 1: Core State System](./phase-1-core-state-system.md) — **85% COMPLETE**
+- [🟡 Phase 1: Core State System](./phase-1-core-state-system.md) — **95% COMPLETE**
 - [Phase 2: Workflow Engine](./phase-2-workflow-engine.md)
 - [Phase 3: Agent Runtime](./phase-3-agent-runtime.md)
 - [Phase 4: Verification Sandbox (Hybrid)](./phase-4-verification-sandbox.md)
@@ -147,12 +147,11 @@ Phase 1
 | **Middleware** | audit.py | HTTP request audit logging |
 | **State Machine** | state_transitions.py v4 | 22 transitions + validation gatecheck + BLOCKED timeout |
 | **Alembic** | alembic.ini, env.py, script.py.mako | Migration framework |
-| **Tests** | 5 test files, 45+ tests | Unit tests for schemas, services, state, retry/audit, concurrency, context |
+| **Tests** | 6 test files, 70+ tests | Unit tests + 25+ integration tests (E2E workflow) |
 | **Docs** | dynamic-model-router.md v4.2, error-handling-resilience.md, risk-assessment.md, state-machine.md | Validation routing, context management, risk mitigations |
 
 ### ⬜ Chưa hoàn thành
 | Component | Missing | Priority |
 |---|---|---|
-| **Integration Tests** | End-to-end workflow tests | HIGH |
 | **DB Migration** | Run alembic upgrade head | HIGH (blocked by pip) |
-| **Validation Tests** | Unit tests for validation service | MEDIUM |
+| **Coverage > 80%** | Run pytest --cov | MEDIUM (blocked by pip) |

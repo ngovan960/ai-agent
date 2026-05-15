@@ -440,13 +440,14 @@ Phases 0-4 only — prove the core workflow works end-to-end. See `docs/mvp-scop
 ---
 
 ## 14. Metadata
-- **Version**: 4.3.0
+- **Version**: 4.4.0
 - **Created**: 2026-05-14
 - **Last Updated**: 2026-05-15
-- **Status**: Phase 0 Complete (v4), Phase 1 Partial (85%)
+- **Status**: Phase 0 Complete (v4), Phase 1 Partial (95%)
 - **Phase 0**: FastAPI = brain, OpenCode = integration, Dynamic Model Router (5 models)
-- **Phase 1 Progress**: 45+ files, CRUD APIs (Projects/Modules/Tasks/Validation/Retry/Audit), ORM models, Alembic, Redis cache, 45+ unit tests
-- **Phase 1 Remaining**: Integration tests, DB migration run
+- **Phase 1 Progress**: 48+ files, CRUD APIs (Projects/Modules/Tasks/Validation/Retry/Audit), ORM models, Alembic, Redis cache, 70+ tests (45 unit + 25+ integration)
+- **Phase 1 Remaining**: DB migration run, coverage > 80% (blocked by pip)
 - **v4.1 Change**: Added Dual-Model Validation Gate — cross-validation before NEW → ANALYZING
 - **v4.2 Change**: Fixed 3 critical risks — State Bloat (optimistic locking), Context Window (priority truncation), Dependency Blocked (timeout + notifications)
 - **v4.3 Change**: Added Retry Tracking Service + Audit Service with CSV export
+- **v4.4 Change**: Added 25+ integration tests (E2E workflow: Projects → Modules → Tasks → Transitions → Validation → Retry/Audit)
