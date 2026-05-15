@@ -17,10 +17,11 @@ Hệ thống được thiết kế để mô phỏng một công ty phần mềm
 2. **OpenCode là tích hợp** — Cung cấp LLM models và tool execution (bash, edit, write, read, glob, grep)
 3. **Model chuyên biệt** — Mỗi model phục vụ một thế mạnh riêng
 4. **Workflow theo trạng thái** — 11 states (3 terminal), 22 valid transitions
-5. **Có lớp quản trị** — Mọi output đều qua luật (20 laws), ngưỡng tin cậy, kiểm tra
-6. **Có bộ nhớ ngoài** — AI đọc trạng thái từ database
-7. **Có cơ chế kiểm chứng** — Chỉ tin kết quả chạy thật trong sandbox
-8. **Có resilience** — Circuit breaker, retry với backoff, fallback model
+5. **Dual-model validation** — Gatekeeper + Validator cross-validate trước khi pass task
+6. **Có lớp quản trị** — Mọi output đều qua luật (20 laws), ngưỡng tin cậy, kiểm tra
+7. **Có bộ nhớ ngoài** — AI đọc trạng thái từ database
+8. **Có cơ chế kiểm chứng** — Chỉ tin kết quả chạy thật trong sandbox
+9. **Có resilience** — Circuit breaker, retry với backoff, fallback model
 
 ### FastAPI-Centric Architecture
 - **FastAPI (Brain)**: Điều phối toàn bộ workflow, state machine, agent dispatch
@@ -284,7 +285,8 @@ uvicorn services.orchestrator.main:app --reload
 
 ---
 
-**Version**: 4.0.0
+**Version**: 4.1.0
 **Created**: 2026-05-14
-**Status**: Phase 0 Complete (v4), Phase 1 Partial (60%) — FastAPI CRUD APIs, ORM, Alembic, Redis
-**Phase 1 Progress**: 30+ files created, 38 unit tests written, CRUD APIs for Projects/Modules/Tasks
+**Status**: Phase 0 Complete (v4), Phase 1 Partial (60%) — FastAPI CRUD APIs, ORM, Alembic, Redis, Validation Gate
+**Phase 1 Progress**: 30+ files created, 38 unit tests written, CRUD APIs for Projects/Modules/Tasks/Validation
+**v4.1 Change**: Added Dual-Model Validation Gate — cross-validation before NEW → ANALYZING transition

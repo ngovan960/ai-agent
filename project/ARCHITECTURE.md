@@ -80,14 +80,16 @@ Hệ thống điều phối AI SDLC mô phỏng một công ty phần mềm dùn
 ```
 1. User → FastAPI receives request (POST /api/v1/tasks)
 2. FastAPI → Gatekeeper agent (via LLM Gateway → LiteLLM)
-3. FastAPI → Orchestrator agent (via LLM Gateway → LiteLLM)
-4. FastAPI → State Machine (validate transition, update DB)
-5. FastAPI → Specialist agent (via LLM Gateway → OpenCode for code + tools)
-6. FastAPI → Verification (run lint/test/build via OpenCode bash tool)
-7. FastAPI → Auditor agent (via LLM Gateway → LiteLLM or OpenCode)
-8. FastAPI → Governance (confidence score, law check)
-9. FastAPI → State Machine (update status in DB)
-10. FastAPI → Memory (store lesson learned in PostgreSQL)
+3. FastAPI → Validator agent (via LLM Gateway → LiteLLM) — NEW: Dual-model validation
+4. FastAPI → Validation decision: APPROVED → Orchestrator | REJECTED → Re-analyze | MISMATCH → Mentor
+5. FastAPI → Orchestrator agent (via LLM Gateway → LiteLLM)
+6. FastAPI → State Machine (validate transition, update DB)
+7. FastAPI → Specialist agent (via LLM Gateway → OpenCode for code + tools)
+8. FastAPI → Verification (run lint/test/build via OpenCode bash tool)
+9. FastAPI → Auditor agent (via LLM Gateway → LiteLLM or OpenCode)
+10. FastAPI → Governance (confidence score, law check)
+11. FastAPI → State Machine (update status in DB)
+12. FastAPI → Memory (store lesson learned in PostgreSQL)
 ```
 
 ---
@@ -97,6 +99,7 @@ Hệ thống điều phối AI SDLC mô phỏng một công ty phần mềm dùn
 ### 3.1. FastAPI Brain Layer
 - **State machine engine**: Validate và thực thi 18 state transitions
 - **Workflow engine**: Điều phối task lifecycle từ NEW → DONE
+- **Dual-model validation gate**: Cross-validate Gatekeeper classification trước khi pass to Orchestrator
 - **Agent router**: Dispatch agents dựa trên task type và complexity
 - **LLM Gateway**: Circuit breaker, retry, fallback, cost tracking cho mọi LLM call
 - **Audit logging**: Log mọi action với actor, timestamp, result
@@ -317,7 +320,35 @@ project/
 
 ---
 
-## 10. Confidence Calculation
+## 10. Quality Checks (7 Steps)
+
+Hệ thống có **7 bước kiểm tra chất lượng** xuyên suốt workflow:
+
+| # | Bước | Khi nào | Ai làm | Model | Fail → |
+|---|---|---|---|---|---|
+| 1 | **Validation Gate** | Input classification | Gatekeeper + Validator | Flash + Qwen 3.5 | Re-analyze / Mentor |
+| 2 | **Gatekeeper Validation** | NEW → ANALYZING | Gatekeeper | DeepSeek V4 Flash | BLOCKED |
+| 3 | **Orchestrator Planning** | ANALYZING → PLANNING | Orchestrator | Qwen 3.6 Plus | BLOCKED |
+| 4 | **Verification Sandbox** | IMPLEMENTING → VERIFYING | System (auto) | — | IMPLEMENTING (retry) |
+| 5 | **Auditor Review** | VERIFYING → REVIEWING → DONE | Auditor | Qwen 3.5 Plus | IMPLEMENTING / ESCALATED |
+| 6 | **Mentor Escalation** | ESCALATED → PLANNING/FAILED | Mentor | Qwen 3.6 Plus | FAILED / PLANNING |
+| 7 | **Audit Trail** | Mọi state transition | System | — | Log + alert |
+
+### 1. Validation Gate (NEW — Dual-Model Cross-Validation)
+
+```
+User request → Gatekeeper (DeepSeek V4 Flash) → Classification
+                    ↓
+              Validator (Qwen 3.5 Plus) → Cross-validate
+                    ↓
+              APPROVED (≥0.8) → Pass to Orchestrator
+              APPROVED (<0.8) → Gatekeeper re-analyze
+              REJECTED        → Escalate to Mentor
+```
+
+**Khi nào skip**: Risk = LOW AND Complexity = TRIVIAL/SIMPLE
+
+## 11. Confidence Calculation
 
 ```
 Confidence = clamp(T × 0.35 + L × 0.15 - P × 0.20 + A × 0.30, 0, 1)
@@ -333,7 +364,7 @@ The result is clamped to [0, 1] to prevent negative values.
 
 ---
 
-## 11. Phases triển khai
+## 12. Phases triển khai
 
 | Phase | Tên | Thời gian | Mục tiêu | Trạng thái |
 |---|---|---|---|---|
@@ -353,7 +384,7 @@ Phases 0-4 only — prove the core workflow works end-to-end. See `docs/mvp-scop
 
 ---
 
-## 12. Key Changes from v2 to v3
+## 13. Key Changes from v2 to v3
 
 | Change | v2 | v3 |
 |---|---|---|
@@ -382,11 +413,12 @@ Phases 0-4 only — prove the core workflow works end-to-end. See `docs/mvp-scop
 
 ---
 
-## 13. Metadata
-- **Version**: 4.0.0
+## 14. Metadata
+- **Version**: 4.1.0
 - **Created**: 2026-05-14
 - **Last Updated**: 2026-05-15
 - **Status**: Phase 0 Complete (v4), Phase 1 Partial (60%)
 - **Phase 0**: FastAPI = brain, OpenCode = integration, Dynamic Model Router (5 models)
-- **Phase 1 Progress**: 30+ files, CRUD APIs (Projects/Modules/Tasks), ORM models, Alembic, Redis cache, 38 unit tests
+- **Phase 1 Progress**: 30+ files, CRUD APIs (Projects/Modules/Tasks/Validation), ORM models, Alembic, Redis cache, 38 unit tests
 - **Phase 1 Remaining**: Retry service, Audit service/APIs, Integration tests, DB migration run
+- **v4.1 Change**: Added Dual-Model Validation Gate — cross-validation before NEW → ANALYZING

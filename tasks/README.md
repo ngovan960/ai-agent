@@ -115,7 +115,7 @@ Phase 1
 ## Links đến từng phase
 
 - [✅ Phase 0: System Design](./phase-0-system-design.md) — **COMPLETE (v4)**
-- [🟡 Phase 1: Core State System](./phase-1-core-state-system.md) — **60% COMPLETE**
+- [🟡 Phase 1: Core State System](./phase-1-core-state-system.md) — **65% COMPLETE**
 - [Phase 2: Workflow Engine](./phase-2-workflow-engine.md)
 - [Phase 3: Agent Runtime](./phase-3-agent-runtime.md)
 - [Phase 4: Verification Sandbox (Hybrid)](./phase-4-verification-sandbox.md)
@@ -134,12 +134,14 @@ Phase 1
 |---|---|---|
 | **Config** | settings.py, database.py, cache.py | Settings, async DB engine, Redis cache |
 | **ORM Models** | base.py, user.py, project.py, module.py, task.py, registry.py | 15+ SQLAlchemy models |
-| **Pydantic Schemas** | project.py, module.py, task.py | CRUD DTOs, response models |
-| **Services** | projects.py, modules.py, tasks.py | CRUD business logic, state transitions |
-| **Routers** | projects.py, modules.py, tasks.py | REST API endpoints |
+| **Pydantic Schemas** | project.py, module.py, task.py, validation.py | CRUD DTOs, validation gate DTOs |
+| **Services** | projects.py, modules.py, tasks.py, validation.py | CRUD + dual-model validation |
+| **Routers** | projects.py, modules.py, tasks.py, validation.py | REST API + validation endpoints |
 | **Middleware** | audit.py | HTTP request audit logging |
+| **State Machine** | state_transitions.py v3 | 22 transitions + validation gatecheck |
 | **Alembic** | alembic.ini, env.py, script.py.mako | Migration framework |
 | **Tests** | 4 test files, 38 tests | Unit tests for schemas, services, state |
+| **Docs** | dynamic-model-router.md v4.1 | Validation routing + decision matrix |
 
 ### ⬜ Chưa hoàn thành
 | Component | Missing | Priority |
@@ -149,3 +151,4 @@ Phase 1
 | **Transition Hooks** | Pre/post hooks, dependency checks | MEDIUM |
 | **Integration Tests** | End-to-end workflow tests | HIGH |
 | **DB Migration** | Run alembic upgrade head | HIGH (blocked by pip) |
+| **Validation Tests** | Unit tests for validation service | MEDIUM |

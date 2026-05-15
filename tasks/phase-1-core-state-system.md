@@ -251,6 +251,49 @@ Lưu toàn bộ lịch sử: ai làm gì, khi nào, output là gì, vì sao fail
 
 ---
 
+## 1.9. Dual-Model Validation Gate
+
+### Mô tả
+Thêm lớp kiểm duyệt ngay từ bước đầu — Gatekeeper phân loại, Validator cross-validate trước khi pass task cho Orchestrator. Ngăn sai lầm lan truyền xuống toàn bộ pipeline.
+
+### Tasks
+- [x] **1.9.1** — Tạo Pydantic schemas cho Validation
+  - File: `shared/schemas/validation.py`
+  - GatekeeperClassification, ValidatorVerdict, ValidationRequest, ValidationResponse
+  - Enums: TaskType, Complexity, RiskLevel, ValidationVerdict
+- [x] **1.9.2** — Implement validation service
+  - File: `services/orchestrator/services/validation.py`
+  - `validate_classification()` — Dual-model cross-validation logic
+  - `should_skip_validation()` — Check risk/complexity matrix
+  - Decision matrix: APPROVED/REJECTED/NEEDS_REVIEW → action
+- [x] **1.9.3** — Build API: POST /api/v1/validation/
+  - File: `services/orchestrator/routers/validation.py`
+  - Input: ValidationRequest (user_request + gatekeeper_classification)
+  - Output: ValidationResponse (verdict, confidence, action)
+- [x] **1.9.4** — Build API: POST /api/v1/validation/quick
+  - Quick validation với params thay vì full request object
+- [x] **1.9.5** — Build API: GET /api/v1/validation/should-skip
+  - Check if validation can be skipped based on risk + complexity
+- [x] **1.9.6** — Update state_transitions.py
+  - File: `shared/config/state_transitions.py` v3
+  - `validate_transition_with_gatecheck()` — NEW → ANALYZING requires validation
+  - `requires_validation()` — Check risk/complexity matrix
+  - Skip condition: risk=low AND complexity=trivial/simple
+- [x] **1.9.7** — Register validation router in main.py
+  - Added to FastAPI app: `/api/v1/validation`
+- [x] **1.9.8** — Update dynamic-model-router.md
+  - Added validation routing table (Qwen 3.5 Plus primary)
+  - Added section 4.5: Dual-Model Validation Gate
+  - Model allocation: Gatekeeper=Flash, Validator=Qwen 3.5, Tie-breaker=Qwen 3.6
+
+### Output
+- [x] Validation schemas, service, APIs hoàn chỉnh
+- [x] State machine updated với validation gatecheck
+- [x] Dynamic model router updated với validation routing
+- [ ] Unit tests cho validation — CHƯA LÀM
+
+---
+
 ## 1.8. Integration Tests
 
 ### Mô tả
@@ -292,15 +335,17 @@ Test end-to-end toàn bộ core state system.
 | 1.6 | Retry Tracking | 🔴 15% | Chỉ có ORM model — service, APIs, tests chưa làm |
 | 1.7 | Audit Logs | 🟡 30% | ORM model + middleware — service, APIs, tests chưa làm |
 | 1.8 | Integration Tests | 🟡 20% | Infrastructure + unit tests — integration tests chưa làm |
+| 1.9 | Dual-Model Validation Gate | ✅ 100% | Schemas, service, APIs, state_transitions v3, router docs — thiếu tests |
 
 **Definition of Done cho Phase 1:**
 - [x] Có API quản lý state (projects, modules, tasks)
 - [x] Có workflow transitions hoạt động (dùng state_transitions.py)
+- [x] Có dual-model validation gate (NEW → ANALYZING cross-validation)
 - [ ] Có retry tracking với auto-escalate — CHƯA
 - [ ] Có audit logs (middleware + service) — middleware có, service chưa
 - [ ] Integration tests pass 100% — CHƯA
 - [ ] Coverage > 80% — CHƯA
 
-**Progress: ~60% Phase 1 hoàn thành**
-**Files created: 30+ files**
+**Progress: ~65% Phase 1 hoàn thành**
+**Files created: 35+ files**
 **Tests written: 38 unit tests (chưa chạy được)**

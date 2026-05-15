@@ -2,11 +2,11 @@
 
 ## Metadata
 
-- **Version**: 4.0.0
+- **Version**: 4.1.0
 - **Created**: 2026-05-15
 - **Last Updated**: 2026-05-15
 - **Related**: [ARCHITECTURE.md](../ARCHITECTURE.md), [llm-integration.md](./llm-integration.md), [opencode-architecture.md](./opencode-architecture.md)
-- **Key Change from v3**: Models no longer fixed to agents. System dynamically selects best model based on task profile, model capabilities, cost, and context.
+- **Key Change from v4.0**: Added Dual-Model Validation Gate — cross-validation before NEW → ANALYZING transition
 
 ---
 
@@ -266,11 +266,88 @@ def select_model(task: TaskProfile) -> ModelSelection:
 | Task Type | Primary Model | Fallback 1 | Fallback 2 | LLM Path |
 |---|---|---|---|---|
 | **classification** | DeepSeek V4 Flash | MiniMax M2.7 | DeepSeek V4 Pro | LiteLLM |
+| **validation** | Qwen 3.5 Plus | Qwen 3.6 Plus | DeepSeek V4 Pro | LiteLLM |
 | **code_generation** | DeepSeek V4 Pro | Qwen 3.6 Plus | MiniMax M2.7 | OpenCode |
 | **review** | Qwen 3.5 Plus | Qwen 3.6 Plus | DeepSeek V4 Pro | LiteLLM |
 | **planning** | Qwen 3.6 Plus | DeepSeek V4 Pro | Qwen 3.5 Plus | LiteLLM |
 | **decision** | Qwen 3.6 Plus | DeepSeek V4 Pro | MiniMax M2.7 | LiteLLM |
 | **monitoring** | MiniMax M2.7 | DeepSeek V4 Flash | Qwen 3.5 Plus | LiteLLM |
+
+---
+
+## 4.5 Dual-Model Validation Gate
+
+### Tại sao cần Validation Gate?
+
+Gatekeeper phân loại task một mình — nếu sai, sai lầm lan truyền xuống toàn bộ pipeline. Validation gate thêm lớp kiểm duyệt ngay từ bước đầu.
+
+### Quy trình
+
+```
+User request → Gatekeeper (DeepSeek V4 Flash) → Classification
+                    ↓
+              Validator (Qwen 3.5 Plus) → Cross-validate classification
+                    ↓
+              Match + confidence ≥ 0.8 → Pass to Orchestrator
+              Match + confidence < 0.8 → Gatekeeper re-analyze
+              Mismatch → Escalate to Mentor (Qwen 3.6 Plus)
+```
+
+### Model Allocation cho Validation
+
+| Role | Model | Lý do | Cost |
+|---|---|---|---|
+| Gatekeeper | DeepSeek V4 Flash | Nhanh, rẻ, phân loại cơ bản | ~$0.0001/call |
+| Validator | Qwen 3.5 Plus | Reasoning tốt, phát hiện lỗi classification | ~$0.001/call |
+| Tie-breaker | Qwen 3.6 Plus | Khi 2 model conflict | ~$0.002/call |
+
+### Khi nào Validator trigger?
+
+| Risk Level | Complexity | Require Validator | Require Mentor |
+|---|---|---|---|
+| LOW | TRIVIAL | No | No |
+| LOW | SIMPLE | No | No |
+| MEDIUM | MEDIUM | Yes | No |
+| HIGH | COMPLEX | Yes | Yes |
+| CRITICAL | CRITICAL | Yes | Yes + Human |
+
+### Validation Decision Matrix
+
+| Validator Verdict | Confidence | Action |
+|---|---|---|
+| APPROVED | ≥ 0.8 | Pass to Orchestrator |
+| APPROVED | < 0.8 | Gatekeeper re-analyze |
+| NEEDS_REVIEW | ≥ 0.5 | Gatekeeper re-analyze |
+| NEEDS_REVIEW | < 0.5 | Escalate to Mentor |
+| REJECTED | Any | Escalate to Mentor (HIGH/CRITICAL) hoặc Gatekeeper re-analyze |
+
+### API Endpoints
+
+```
+POST /api/v1/validation/          — Full validation with classification
+POST /api/v1/validation/quick     — Quick validation with params
+GET  /api/v1/validation/should-skip — Check if validation can be skipped
+```
+
+### State Transition Impact
+
+Điều kiện NEW → ANALYZING được cập nhật:
+- **Trước**: Gatekeeper đã phân loại task
+- **Sau**: Gatekeeper đã phân loại + **Validator đã approve** (trừ risk=low AND complexity=trivial/simple)
+
+```python
+# state_transitions.py v3
+def validate_transition_with_gatecheck(
+    current_status, new_status,
+    has_validated=False,
+    risk_level="low",
+    complexity="simple",
+):
+    if current_status == "NEW" and new_status == "ANALYZING":
+        if requires_validation(risk_level, complexity) and not has_validated:
+            return False, "Requires dual-model validation approval"
+    return validate_transition(current_status, new_status)
+```
 
 ---
 

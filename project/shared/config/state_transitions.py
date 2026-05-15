@@ -2,7 +2,7 @@
 State Transition Rules - AI SDLC System
 
 Defines all valid state transitions for tasks in the workflow.
-Version 2.0.0 — Added FAILED, CANCELLED terminal states.
+Version 3.0.0 — Added dual-model validation gate before NEW → ANALYZING.
 """
 
 VALID_TRANSITIONS = {
@@ -22,7 +22,7 @@ VALID_TRANSITIONS = {
 TERMINAL_STATES = {"DONE", "FAILED", "CANCELLED"}
 
 TRANSITION_CONDITIONS = {
-    ("NEW", "ANALYZING"): "Gatekeeper da phan loai task",
+    ("NEW", "ANALYZING"): "Gatekeeper da phan loai task + Validator da approve classification",
     ("NEW", "BLOCKED"): "Thieu thong tin de phan tich",
     ("ANALYZING", "PLANNING"): "Orchestrator da chia task",
     ("ANALYZING", "BLOCKED"): "Khong the phan tich do thieu thong tin",
@@ -125,3 +125,56 @@ def get_transition_condition(from_status: str, to_status: str) -> str:
     return TRANSITION_CONDITIONS.get(
         (from_status, to_status), "No condition defined"
     )
+
+
+VALIDATION_REQUIRED_FOR_NEW_TO_ANALYZING = True
+
+VALIDATION_SKIP_CONDITIONS = {
+    "risk_level": ["low"],
+    "complexity": ["trivial", "simple"],
+}
+
+
+def requires_validation(
+    risk_level: str,
+    complexity: str,
+) -> bool:
+    """Check if a NEW → ANALYZING transition requires dual-model validation."""
+    if not VALIDATION_REQUIRED_FOR_NEW_TO_ANALYZING:
+        return False
+    skip_risks = VALIDATION_SKIP_CONDITIONS.get("risk_level", [])
+    skip_complexities = VALIDATION_SKIP_CONDITIONS.get("complexity", [])
+    if risk_level.lower() in skip_risks and complexity.lower() in skip_complexities:
+        return False
+    return True
+
+
+def validate_transition_with_gatecheck(
+    current_status: str,
+    new_status: str,
+    has_validated: bool = False,
+    risk_level: str = "low",
+    complexity: str = "simple",
+    has_verified_output: bool = False,
+) -> tuple[bool, str]:
+    """
+    Validate state transition with dual-model validation gatecheck.
+
+    For NEW → ANALYZING: requires validation approval unless risk=low AND complexity=trivial/simple.
+
+    Args:
+        current_status: Current task status
+        new_status: Desired new status
+        has_validated: Whether dual-model validation passed (for NEW → ANALYZING)
+        risk_level: Task risk level (low/medium/high/critical)
+        complexity: Task complexity (trivial/simple/medium/complex/critical)
+        has_verified_output: Whether task has a passed verification (for ESCALATED → DONE)
+
+    Returns:
+        Tuple of (is_valid, reason)
+    """
+    if current_status == "NEW" and new_status == "ANALYZING":
+        if requires_validation(risk_level, complexity) and not has_validated:
+            return False, "NEW → ANALYZING requires dual-model validation approval. Submit to /api/v1/validation first."
+
+    return validate_transition(current_status, new_status, has_verified_output)

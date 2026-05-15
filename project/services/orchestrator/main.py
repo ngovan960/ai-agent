@@ -8,7 +8,7 @@ from shared.config.settings import get_settings
 from shared.database import engine, init_db
 from shared.cache import close_redis
 from services.orchestrator.middleware.audit import AuditMiddleware
-from services.orchestrator.routers import projects, modules, tasks
+from services.orchestrator.routers import projects, modules, tasks, validation
 
 settings = get_settings()
 
@@ -49,6 +49,7 @@ app.add_middleware(AuditMiddleware)
 app.include_router(projects.router, prefix="/api/v1/projects", tags=["projects"])
 app.include_router(modules.router, prefix="/api/v1/modules", tags=["modules"])
 app.include_router(tasks.router, prefix="/api/v1/tasks", tags=["tasks"])
+app.include_router(validation.router, prefix="/api/v1/validation", tags=["validation"])
 
 
 @app.get("/health")
