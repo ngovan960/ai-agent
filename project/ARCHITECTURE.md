@@ -97,7 +97,7 @@ Hệ thống điều phối AI SDLC mô phỏng một công ty phần mềm dùn
 ## 3. 5 Lớp chính
 
 ### 3.1. FastAPI Brain Layer
-- **State machine engine**: Validate và thực thi 22 state transitions
+- **State machine engine**: Validate và thực thi 23 state transitions
 - **Workflow engine**: Điều phối task lifecycle từ NEW → DONE
 - **Dual-model validation gate**: Cross-validate Gatekeeper classification trước khi pass to Orchestrator
 - **Agent router**: Dispatch agents dựa trên task type và complexity
@@ -106,7 +106,7 @@ Hệ thống điều phối AI SDLC mô phỏng một công ty phần mềm dùn
 
 ### 3.2. State Machine Layer
 - **11 states**: NEW, ANALYZING, PLANNING, IMPLEMENTING, VERIFYING, REVIEWING, DONE, ESCALATED, BLOCKED, FAILED, CANCELLED
-- **22 valid transitions** với điều kiện
+- **23 valid transitions** với điều kiện
 - **3 terminal states**: DONE, FAILED, CANCELLED
 - **State validation**: Mọi transition được validate trước khi thực thi
 - **Audit logging**: Mọi state change được log với actor, reason, timestamp
@@ -440,7 +440,7 @@ Phases 0-4 only — prove the core workflow works end-to-end. See `docs/mvp-scop
 ---
 
 ## 14. Metadata
-- **Version**: 4.6.0
+- **Version**: 4.7.0
 - **Created**: 2026-05-14
 - **Last Updated**: 2026-05-15
 - **Status**: Phase 0 ✅ | Phase 1 ✅ | Post-Phase 1 Bug Fixes ✅
@@ -451,3 +451,7 @@ Phases 0-4 only — prove the core workflow works end-to-end. See `docs/mvp-scop
   - HIGH (6): async event loop blocking, UUID generation, state machine bypass, race conditions, circuit breaker persistence, embedding dimension
   - MEDIUM (7): LLM-powered validation gate, prompt injection, auth middleware, audit log improvement, context builder reordering, fallback chain sync, cost unit docs
   - LOW (4): backoff jitter, whitelist field updates, locking strategy, input validation
+- **v4.7 Change**: Critical security fixes + implementation gaps:
+  - CRITICAL (2): Auth bypass requires explicit ENVIRONMENT=development + AUTH_BYPASS_ENABLED (not just DEBUG); API Key stored as SHA-256 hash (not plaintext)
+  - IMPORTANT (2): Validation router now calls async LLM validator; Module update uses field whitelist
+  - IMPROVEMENT (2): All list endpoints return total_pages; Transition count fixed to 23 across all docs

@@ -26,11 +26,13 @@ async def list_tasks(
     priority: str | None = None,
 ):
     items, total = await task_service.get_tasks(db, project_id, module_id, page, page_size, status, priority)
+    total_pages = max(1, (total + page_size - 1) // page_size)
     return TaskListResponse(
         items=[TaskResponse.model_validate(t) for t in items],
         total=total,
         page=page,
         page_size=page_size,
+        total_pages=total_pages,
     )
 
 

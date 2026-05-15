@@ -7,6 +7,8 @@ from sqlalchemy.orm import selectinload
 from shared.models.module import Module, ModuleDependency
 from shared.schemas.module import ModuleCreate, ModuleUpdate
 
+UPDATABLE_MODULE_FIELDS = {"name", "description", "status"}
+
 
 async def get_modules(
     db: AsyncSession,
@@ -54,7 +56,8 @@ async def update_module(db: AsyncSession, module_id: UUID, data: ModuleUpdate) -
 
     update_data = data.model_dump(exclude_unset=True)
     for key, value in update_data.items():
-        setattr(module, key, value)
+        if key in UPDATABLE_MODULE_FIELDS:
+            setattr(module, key, value)
 
     await db.flush()
     await db.refresh(module)

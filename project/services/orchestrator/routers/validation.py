@@ -23,7 +23,7 @@ async def validate_classification(
     request: ValidationRequest,
     db: AsyncSession = Depends(get_db),
 ):
-    result = validation_service.validate_classification(request)
+    result = await validation_service.validate_classification_async(request)
     return result
 
 
@@ -50,7 +50,7 @@ async def quick_validate(
         user_request=user_request,
         gatekeeper_classification=classification,
     )
-    result = validation_service.validate_classification(request)
+    result = await validation_service.validate_classification_async(request)
     return result
 
 

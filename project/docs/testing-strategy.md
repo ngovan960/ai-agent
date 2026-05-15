@@ -280,7 +280,7 @@ class TestStateMachineInvalidTransitions:
             )
 
     def test_all_22_invalid_transitions_fail(self, state_machine):
-        """Test tất cả 22 transitions không hợp lệ."""
+        """Test tất cả 23 transitions không hợp lệ."""
         invalid_transitions = [
             ("DONE", "ANY"),
             ("FAILED", "ANY"),

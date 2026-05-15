@@ -22,11 +22,13 @@ async def list_modules(
     status: str | None = None,
 ):
     items, total = await module_service.get_modules(db, project_id, page, page_size, status)
+    total_pages = max(1, (total + page_size - 1) // page_size)
     return ModuleListResponse(
         items=[ModuleResponse.model_validate(m) for m in items],
         total=total,
         page=page,
         page_size=page_size,
+        total_pages=total_pages,
     )
 
 

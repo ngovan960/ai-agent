@@ -202,7 +202,7 @@ Very Low (1) IGNORE          ACCEPT            MONITOR           MITIGATE
 | **Probability** | Low (2) |
 | **Impact** | Critical (4) |
 | **Risk Score** | 8 — **HIGH** (reduced from 12) |
-| **Description** | 22 valid transitions và nhiều invalid transitions có nhiều edge cases—race conditions, stuck states, unexpected transition sequences. |
+| **Description** | 23 valid transitions và nhiều invalid transitions có nhiều edge cases—race conditions, stuck states, unexpected transition sequences. |
 
 **Impact Analysis:**
 
@@ -227,7 +227,7 @@ Very Low (1) IGNORE          ACCEPT            MONITOR           MITIGATE
 | 2 | **Retry on conflict**: `@retry_on_conflict` decorator với exponential backoff (0.1s → 0.2s → 0.4s) | P0 | ✅ Implemented |
 | 3 | **Stuck task detection**: Background job detect tasks stuck >30 phút, auto-alert | P0 | ✅ Implemented |
 | 4 | **Auto-escalation**: Tasks stuck >60 phút auto-escalate to ESCALATED | P0 | ✅ Implemented |
-| 5 | **Comprehensive unit tests**: Test tất cả 22 valid transitions và invalid transitions | P0 | Planned |
+| 5 | **Comprehensive unit tests**: Test tất cả 23 valid transitions và invalid transitions | P0 | Planned |
 | 6 | **Database constraints**: CHECK constraints cho valid state values | P0 | In Design |
 | 7 | **Audit log integrity**: Hash chain validation, append-only audit logs | P0 | Planned |
 | 8 | **Integration tests cho concurrent transitions**: Verify chỉ 1 transition thành công | P0 | Planned |

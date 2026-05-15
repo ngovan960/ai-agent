@@ -2,8 +2,9 @@ import os
 import pytest
 import pytest_asyncio
 
+os.environ["ENVIRONMENT"] = "development"
+os.environ["AUTH_BYPASS_ENABLED"] = "true"
 os.environ["DEBUG"] = "true"
-os.environ["AUTH_REQUIRED_IN_DEV"] = "false"
 
 from httpx import ASGITransport, AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine, async_sessionmaker

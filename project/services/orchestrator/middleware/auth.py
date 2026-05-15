@@ -3,10 +3,16 @@
 Supports:
 - JWT Bearer tokens (for human users via dashboard)
 - API Key header (for agent/programmatic access)
-- Optional: bypass auth in development mode
+- Optional: bypass auth in development mode ONLY when explicitly enabled
+
+Security: Auth bypass is only allowed when:
+  1. ENVIRONMENT == "development" (explicit opt-in)
+  2. AUTH_BYPASS_ENABLED == True (explicit opt-in)
+  Both conditions must be true. DEBUG=True alone does NOT bypass auth.
 """
 
 import logging
+from datetime import datetime, timezone
 from typing import Optional
 from uuid import UUID
 
@@ -15,6 +21,7 @@ from starlette.middleware.base import BaseHTTPMiddleware
 from jose import JWTError, jwt
 
 from shared.config.settings import get_settings
+from shared.security import hash_api_key
 
 logger = logging.getLogger(__name__)
 
@@ -36,10 +43,16 @@ class AuthMiddleware(BaseHTTPMiddleware):
         if request.url.path in PUBLIC_PATHS or request.url.path.startswith("/docs"):
             return await call_next(request)
 
-        if settings.DEBUG and not settings.AUTH_REQUIRED_IN_DEV:
+        if settings.AUTH_BYPASS_ENABLED and settings.ENVIRONMENT == "development":
+            logger.warning(
+                f"Auth bypass enabled for {request.url.path} "
+                f"(ENVIRONMENT={settings.ENVIRONMENT})"
+            )
             request.state.user_id = None
             request.state.auth_method = "dev-bypass"
-            return await call_next(request)
+            response = await call_next(request)
+            response.headers["X-Auth-Bypass"] = "true"
+            return response
 
         try:
             user_id, auth_method = await self._authenticate(request)
@@ -90,17 +103,27 @@ class AuthMiddleware(BaseHTTPMiddleware):
             from shared.models.user import ApiKey
             from shared.database import async_session_factory
 
+            hashed = hash_api_key(api_key)
+
             async with async_session_factory() as db:
                 result = await db.execute(
                     select(ApiKey).where(
-                        ApiKey.key_hash == api_key,
+                        ApiKey.key_hash == hashed,
                         ApiKey.is_active == True,
                     )
                 )
                 key_record = result.scalars().first()
                 if key_record:
-                    key_record.last_used_at = None  # triggers update
+                    if key_record.expires_at and key_record.expires_at < datetime.now(timezone.utc):
+                        raise HTTPException(
+                            status_code=status.HTTP_401_UNAUTHORIZED,
+                            detail="API key has expired",
+                        )
+                    key_record.last_used_at = datetime.now(timezone.utc)
+                    await db.flush()
                     return key_record.user_id
+        except HTTPException:
+            raise
         except Exception as e:
             logger.warning(f"API key verification failed: {e}")
 

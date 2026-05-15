@@ -16,7 +16,7 @@ Hệ thống được thiết kế để mô phỏng một công ty phần mềm
 1. **FastAPI là bộ não** — Điều phối toàn bộ: state machine, workflow engine, agent dispatch, cost tracking, audit logging
 2. **OpenCode là tích hợp** — Cung cấp LLM models và tool execution (bash, edit, write, read, glob, grep)
 3. **Model chuyên biệt** — Mỗi model phục vụ một thế mạnh riêng
-4. **Workflow theo trạng thái** — 11 states (3 terminal), 22 valid transitions
+4. **Workflow theo trạng thái** — 11 states (3 terminal), 23 valid transitions
 5. **Dual-model validation** — Gatekeeper + Validator cross-validate trước khi pass task
 6. **Có lớp quản trị** — Mọi output đều qua luật (20 laws), ngưỡng tin cậy, kiểm tra
 7. **Có bộ nhớ ngoài** — AI đọc trạng thái từ database
@@ -76,7 +76,7 @@ project/
 │   │   ├── models.yaml              # Model config (v4, 5 models)
 │   │   ├── model_capabilities.yaml  # [NEW] Capability registry
 │   │   ├── model_router.py          # [NEW] Dynamic router
-│   │   └── state_transitions.py     # State transition rules (22 transitions)
+│   │   └── state_transitions.py     # State transition rules (23 transitions)
 │   ├── models/                      # [NEW] SQLAlchemy ORM models
 │   │   ├── base.py
 │   │   ├── user.py
@@ -288,7 +288,8 @@ uvicorn services.orchestrator.main:app --reload
 
 ---
 
-**Version**: 4.6.0
+**Version**: 4.7.0
 **Created**: 2026-05-14
 **Status**: Phase 0 ✅ | Phase 1 ✅ | Post-Phase 1 Bug Fixes ✅ — 115 tests pass, 79% coverage
-**v4.6 Change**: Fixed 20 bugs/security issues — ESCALATED→DONE, mentor_quota, CORS, async blocking, auth middleware, validation gate LLM, prompt injection, race conditions, circuit breaker persistence
+**v4.6 Change**: Fixed 20 bugs — ESCALATED→DONE, mentor_quota, CORS, async blocking, auth middleware, validation gate LLM, prompt injection, race conditions, circuit breaker persistence
+**v4.7 Change**: Critical security fixes — auth bypass separated from DEBUG (ENVIRONMENT check), API keys SHA-256 hashed, validation router wired to async LLM, module whitelist, pagination total_pages

@@ -9,7 +9,7 @@ from shared.database import engine, init_db
 from shared.cache import close_redis
 from services.orchestrator.middleware.audit import AuditMiddleware
 from services.orchestrator.middleware.auth import AuthMiddleware
-from services.orchestrator.routers import projects, modules, tasks, validation, retry_audit
+from services.orchestrator.routers import projects, modules, tasks, validation, retry_audit, api_keys
 
 settings = get_settings()
 
@@ -59,6 +59,7 @@ app.include_router(modules.router, prefix="/api/v1/modules", tags=["modules"])
 app.include_router(tasks.router, prefix="/api/v1/tasks", tags=["tasks"])
 app.include_router(validation.router, prefix="/api/v1/validation", tags=["validation"])
 app.include_router(retry_audit.router, tags=["retry-audit"])
+app.include_router(api_keys.router, prefix="/api/v1/api-keys", tags=["api-keys"])
 
 
 @app.get("/health")
