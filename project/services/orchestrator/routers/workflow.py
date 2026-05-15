@@ -1,6 +1,7 @@
+import asyncio
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, Query, BackgroundTasks
+from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks
 from pydantic import BaseModel, Field
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -11,6 +12,7 @@ from services.orchestrator.services import tasks as task_service
 router = APIRouter(prefix="/api/v1")
 
 _executions: dict[str, dict] = {}
+_executions_lock = asyncio.Lock()
 
 
 class ExecuteTaskRequest(BaseModel):
@@ -50,12 +52,13 @@ async def execute_task(
     import uuid
     execution_id = str(uuid.uuid4())
 
-    _executions[execution_id] = {
-        "task_id": str(task_id),
-        "status": WorkflowStatus.RUNNING.value,
-        "started_at": None,
-        "result": None,
-    }
+    async with _executions_lock:
+        _executions[execution_id] = {
+            "task_id": str(task_id),
+            "status": WorkflowStatus.RUNNING.value,
+            "started_at": None,
+            "result": None,
+        }
 
     background_tasks.add_task(_run_workflow_task, execution_id, task_id)
 
@@ -69,7 +72,8 @@ async def execute_task(
 
 @router.get("/workflows/{execution_id}", response_model=ExecutionStatus)
 async def get_execution_status(execution_id: str):
-    execution = _executions.get(execution_id)
+    async with _executions_lock:
+        execution = _executions.get(execution_id)
     if not execution:
         raise HTTPException(status_code=404, detail="Execution not found")
 
@@ -93,7 +97,8 @@ async def get_execution_status(execution_id: str):
 
 @router.post("/workflows/{execution_id}/cancel")
 async def cancel_execution(execution_id: str, db: AsyncSession = Depends(get_db)):
-    execution = _executions.get(execution_id)
+    async with _executions_lock:
+        execution = _executions.get(execution_id)
     if not execution:
         raise HTTPException(status_code=404, detail="Execution not found")
 
@@ -102,7 +107,8 @@ async def cancel_execution(execution_id: str, db: AsyncSession = Depends(get_db)
     success = await engine.cancel_workflow(UUID(task_id))
 
     if success:
-        execution["status"] = WorkflowStatus.CANCELLED.value
+        async with _executions_lock:
+            execution["status"] = WorkflowStatus.CANCELLED.value
         return {"status": "cancelled", "execution_id": execution_id}
     raise HTTPException(status_code=400, detail="Cannot cancel this execution")
 
@@ -113,13 +119,15 @@ async def retry_execution(
     background_tasks: BackgroundTasks,
     db: AsyncSession = Depends(get_db),
 ):
-    execution = _executions.get(execution_id)
+    async with _executions_lock:
+        execution = _executions.get(execution_id)
     if not execution:
         raise HTTPException(status_code=404, detail="Execution not found")
 
     task_id = execution["task_id"]
-    execution["status"] = WorkflowStatus.RUNNING.value
-    execution["result"] = None
+    async with _executions_lock:
+        execution["status"] = WorkflowStatus.RUNNING.value
+        execution["result"] = None
 
     background_tasks.add_task(_run_workflow_task, execution_id, UUID(task_id))
 
@@ -133,8 +141,10 @@ async def _run_workflow_task(execution_id: str, task_id: UUID):
         try:
             engine = WorkflowEngine(db)
             result = await engine.run_workflow(task_id)
-            _executions[execution_id]["result"] = result
-            _executions[execution_id]["status"] = result.status.value
+            async with _executions_lock:
+                _executions[execution_id]["result"] = result
+                _executions[execution_id]["status"] = result.status.value
         except Exception as e:
-            _executions[execution_id]["status"] = WorkflowStatus.FAILED.value
-            _executions[execution_id]["error"] = str(e)
+            async with _executions_lock:
+                _executions[execution_id]["status"] = WorkflowStatus.FAILED.value
+                _executions[execution_id]["error"] = str(e)

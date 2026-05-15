@@ -1,12 +1,11 @@
 import hashlib
 import logging
-from datetime import datetime, timezone
 from uuid import UUID as UUIDType
 
 from sqlalchemy import select, func
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from shared.models.registry import CostTracking, LLMCallLog, LLMCallStatus, CircuitBreakerState
+from shared.models.registry import CostTracking, LLMCallLog, LLMCallStatus
 
 logger = logging.getLogger(__name__)
 

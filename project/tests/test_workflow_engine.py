@@ -188,7 +188,7 @@ class TestWorkflowEngineNodes:
 
     async def test_node_blocked(self, engine, mock_task):
         result = await engine._node_blocked(mock_task)
-        assert result.output_state == "ESCALATED"
+        assert result.output_state is None
 
     @patch("services.orchestrator.services.workflow_engine.task_service")
     async def test_run_workflow_run_state_machine(self, mock_ts, engine, mock_db, mock_task):

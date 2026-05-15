@@ -12,7 +12,6 @@ from shared.llm.rate_limiter import RateLimiter
 from shared.llm.cost_tracker import CostTracker
 from services.orchestrator.services.llm_gateway import LLMGateway, LLMResult
 from services.orchestrator.services.prompt_templates import PromptTemplateLoader
-from services.orchestrator.services.context_builder import ContextBuilder
 
 logger = logging.getLogger(__name__)
 
