@@ -440,18 +440,15 @@ Phases 0-4 only — prove the core workflow works end-to-end. See `docs/mvp-scop
 ---
 
 ## 14. Metadata
-- **Version**: 4.7.0
+- **Version**: 5.0.0
 - **Created**: 2026-05-14
-- **Last Updated**: 2026-05-15
-- **Status**: Phase 0 ✅ | Phase 1 ✅ | Post-Phase 1 Bug Fixes ✅
+- **Last Updated**: 2026-05-16
+- **Status**: Phase 0 ✅ | Phase 1 ✅ | Phase 2 ✅
 - **Phase 1**: 115 tests pass (79% coverage), 48+ files, CRUD APIs, Validation Gate, Risk Mitigations
-- **v4.5 Change**: Phase 1 complete, 115 tests pass, cross-platform UUID
-- **v4.6 Change**: Fixed 20 bugs/security issues from comprehensive review:
-  - CRITICAL (3): ESCALATED→DONE transition, mentor_quota user_id, CORS security
-  - HIGH (6): async event loop blocking, UUID generation, state machine bypass, race conditions, circuit breaker persistence, embedding dimension
-  - MEDIUM (7): LLM-powered validation gate, prompt injection, auth middleware, audit log improvement, context builder reordering, fallback chain sync, cost unit docs
-  - LOW (4): backoff jitter, whitelist field updates, locking strategy, input validation
-- **v4.7 Change**: Critical security fixes + implementation gaps:
-  - CRITICAL (2): Auth bypass requires explicit ENVIRONMENT=development + AUTH_BYPASS_ENABLED (not just DEBUG); API Key stored as SHA-256 hash (not plaintext)
-  - IMPORTANT (2): Validation router now calls async LLM validator; Module update uses field whitelist
-  - IMPROVEMENT (2): All list endpoints return total_pages; Transition count fixed to 23 across all docs
+- **Phase 2**: 202 tests pass, 65+ files, Workflow Engine, LLM Gateway, Agent Dispatcher, Prompt Templates
+- **v5.0.0 Change**: Phase 2 Workflow Engine complete:
+  - LLM Gateway (circuit breaker + retry + fallback + cost tracking + rate limiting)
+  - Agent Dispatcher (7 agents, state-based routing, prompt templates)
+  - Workflow Engine (state machine nodes, audit logging, cancellation)
+  - Workflow API (execute, status, cancel, retry endpoints)
+  - 87 new tests (202 total)

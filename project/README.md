@@ -288,8 +288,7 @@ uvicorn services.orchestrator.main:app --reload
 
 ---
 
-**Version**: 4.7.0
+**Version**: 5.0.0
 **Created**: 2026-05-14
-**Status**: Phase 0 ✅ | Phase 1 ✅ | Post-Phase 1 Bug Fixes ✅ — 115 tests pass, 79% coverage
-**v4.6 Change**: Fixed 20 bugs — ESCALATED→DONE, mentor_quota, CORS, async blocking, auth middleware, validation gate LLM, prompt injection, race conditions, circuit breaker persistence
-**v4.7 Change**: Critical security fixes — auth bypass separated from DEBUG (ENVIRONMENT check), API keys SHA-256 hashed, validation router wired to async LLM, module whitelist, pagination total_pages
+**Status**: Phase 0 ✅ | Phase 1 ✅ | Phase 2 ✅ — 202 tests pass
+**v5.0.0 Change**: Phase 2 complete — Workflow Engine, LLM Gateway (circuit breaker + retry + fallback + cost tracking), Agent Dispatcher (7 agents), Prompt Templates, Workflow API (execute/status/cancel/retry), Background task execution
