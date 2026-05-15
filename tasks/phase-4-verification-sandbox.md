@@ -3,6 +3,7 @@
 ## Mục tiêu
 Không tin AI. Chỉ tin execution result.
 Build verification pipeline với 2 chế độ: Dev (OpenCode) + Prod (Docker).
+**Đây là bước kiểm tra chất lượng #4 trong 7 quality checks của hệ thống.**
 
 ## Tech Stack
 | Thành phần | Tech |
@@ -11,6 +12,7 @@ Build verification pipeline với 2 chế độ: Dev (OpenCode) + Prod (Docker).
 | Prod Mode | Docker, Ubuntu |
 | CI | GitHub Actions |
 | Logs | Loki |
+| Models | DeepSeek V4 Flash/Pro, Qwen 3.5/3.6 Plus, MiniMax M2.7 |
 
 ---
 

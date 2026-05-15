@@ -87,7 +87,8 @@ project/
 │   ├── schemas/                     # [NEW] Pydantic schemas
 │   │   ├── project.py
 │   │   ├── module.py
-│   │   └── task.py
+│   │   ├── task.py
+│   │   └── validation.py            # [NEW] Validation gate schemas
 │   ├── database.py                  # [NEW] Async DB engine, session
 │   └── cache.py                     # [NEW] Redis cache integration
 ├── services/
@@ -97,11 +98,13 @@ project/
 │   │   ├── routers/                 # [NEW] API routers
 │   │   │   ├── projects.py
 │   │   │   ├── modules.py
-│   │   │   └── tasks.py
+│   │   │   ├── tasks.py
+│   │   │   └── validation.py        # [NEW] Validation gate API
 │   │   ├── services/                # [NEW] Business logic
 │   │   │   ├── projects.py
 │   │   │   ├── modules.py
-│   │   │   └── tasks.py
+│   │   │   ├── tasks.py
+│   │   │   └── validation.py        # [NEW] Validation gate service
 │   │   └── middleware/              # [NEW] Middleware
 │   │       └── audit.py
 │   ├── execution/                   # Execution layer (Phase 4)

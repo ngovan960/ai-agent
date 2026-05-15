@@ -10,6 +10,7 @@
 | DB | PostgreSQL |
 | Embeddings | OpenAI text-embedding-3-small / BGE |
 | Cache | Redis |
+| Models | DeepSeek V4 Flash/Pro, Qwen 3.5/3.6 Plus, MiniMax M2.7 |
 
 ---
 

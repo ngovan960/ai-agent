@@ -4,6 +4,14 @@
 Tăng autonomy, speed, reliability, scalability.
 AI tự cải thiện workflow, tự refactor, tự quản lý nhiều project.
 
+## Tech Stack
+| Thành phần | Tech |
+|---|---|
+| Multi-Project | FastAPI, PostgreSQL |
+| Self-Improvement | ML models, feedback loops |
+| Scaling | Kubernetes, horizontal pod autoscaling |
+| Models | DeepSeek V4 Flash/Pro, Qwen 3.5/3.6 Plus, MiniMax M2.7 |
+
 ---
 
 ## 9.1. Multi-Project Orchestration

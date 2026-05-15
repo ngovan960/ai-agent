@@ -1,55 +1,74 @@
 # PHASE 3 — AGENT RUNTIME (2–4 tuần)
 
 ## Mục tiêu
-Build hệ agent thật — model routing, prompt templates, context builder, OpenCode adapter, và 7 specialized agents.
+Build hệ agent thật — Dynamic Model Router (v4), prompt templates, context builder, OpenCode adapter, và 8 specialized agents.
 
 ## Tech Stack
 | Thành phần | Tech |
 |---|---|
-| LLM Integration | LiteLLM (unified API cho nhiều models) |
-| Models | DeepSeek V4 Flash/Pro, Qwen 3.5/3.6 Plus |
+| LLM Integration | LiteLLM (simple calls) + OpenCode (coding tools) |
+| Models | DeepSeek V4 Flash, DeepSeek V4 Pro, Qwen 3.5 Plus, Qwen 3.6 Plus, MiniMax M2.7 |
+| Model Router | Dynamic Model Router v4 (scoring: capability 40% + context 20% + speed 15% + cost 15% + circuit_breaker 10%) |
 | Execution (Dev) | OpenCode tools (bash, edit, write, read, glob, grep) |
 | Execution (Prod) | Docker sandbox |
 | Context | Redis cache + PostgreSQL |
+| Validation | Dual-Model Validation Gate (v4.1) |
 
 ---
 
-## 3.1. Model Router
+## 3.1. Dynamic Model Router (v4)
 
 ### Mô tả
-Routing task đến model phù hợp dựa trên complexity score — giảm cost, tăng hiệu quả.
+Sử dụng **Dynamic Model Router** từ Phase 0 — không gán cố định model cho agent.
+Router tự động chọn model phù hợp nhất dựa trên scoring algorithm.
 
 ### Tasks
-- [ ] **3.1.1** — Implement complexity scoring service
-  - File: `services/orchestrator/services/complexity_service.py`
-  - Factors: estimated_lines_of_code, số_dependencies, risk_level, domain_complexity
-  - Score: 1-10
-  - Function: `calculate_complexity(task_spec) -> score`
-- [ ] **3.1.2** — Implement model routing logic
-  - File: `services/orchestrator/services/model_router.py`
-  - Rule: complexity < 3 → Flash (nhanh, rẻ)
-  - Rule: complexity 3-7 → Pro (mạnh về code)
-  - Rule: complexity >= 7 → Qwen (reasoning tốt)
-  - Function: `route_model(complexity_score) -> model_name`
-- [ ] **3.1.3** — Implement model config loader
-  - Load từ `shared/config/models.yaml` (Phase 0)
-  - Config: model_name, api_endpoint, max_tokens, temperature, cost_per_token
-- [ ] **3.1.4** — Implement fallback mechanism
-  - Nếu model lỗi → chuyển sang model dự phòng
-  - Rule: Flash fail → Pro, Pro fail → Qwen
-  - Function: `fallback_model(primary_model) -> backup_model`
-- [ ] **3.1.5** — Build API: POST /api/v1/models/select
-  - Input: { "task_spec": "...", "complexity": 5 }
-  - Output: { "model": "deepseek-v4-pro", "reason": "..." }
-- [ ] **3.1.6** — Unit test cho model router
-  - Test complexity scoring
-  - Test routing logic
-  - Test fallback mechanism
-  - Test model config loading
+- [ ] **3.1.1** — Integrate Dynamic Model Router từ Phase 0
+  - File: `shared/config/model_router.py` (đã có từ Phase 0)
+  - Scoring: capability_match (40%) + context_fit (20%) + speed (15%) + cost (15%) + circuit_breaker (10%)
+  - 5 models: DeepSeek V4 Flash, DeepSeek V4 Pro, Qwen 3.5 Plus, Qwen 3.6 Plus, MiniMax M2.7
+- [ ] **3.1.2** — Implement task profile builder
+  - File: `services/orchestrator/services/task_profile_builder.py`
+  - Function: `build_task_profile(task_spec) -> TaskProfile`
+  - Factors: task_type, complexity, context_size, speed_requirement, budget
+  - Output: TaskProfile dùng cho Dynamic Model Router
+- [ ] **3.1.3** — Implement model selection per agent call
+  - Function: `select_model_for_agent(agent_name, task_profile) -> ModelSelection`
+  - Returns: primary model + fallback chain + llm_path (litellm or opencode)
+  - Uses model_capabilities.yaml capability registry
+- [ ] **3.1.4** — Implement fallback mechanism (v4)
+  - Fallback chains từ model_capabilities.yaml:
+    - DeepSeek V4 Flash → MiniMax M2.7 → DeepSeek V4 Pro
+    - DeepSeek V4 Pro → Qwen 3.6 Plus → MiniMax M2.7
+    - Qwen 3.5 Plus → Qwen 3.6 Plus → DeepSeek V4 Pro
+    - Qwen 3.6 Plus → No fallback (escalate to Mentor)
+    - MiniMax M2.7 → DeepSeek V4 Flash → Qwen 3.5 Plus
+  - Function: `get_fallback_chain(model_name) -> [fallback_models]`
+- [ ] **3.1.5** — Implement circuit breaker integration
+  - File: `shared/config/model_router.py` (đã có)
+  - Per-model circuit breaker: closed → open → half-open
+  - Thresholds: 3-5 failures, 30-90s recovery, 3 half-open max calls
+  - Function: `is_model_available(model_name) -> bool`
+- [ ] **3.1.6** — Implement validation routing (NEW v4.1)
+  - Validator agent uses Qwen 3.5 Plus primary
+  - Fallback: Qwen 3.6 Plus → DeepSeek V4 Pro
+  - Function: `select_validator_model(task_profile) -> ModelSelection`
+- [ ] **3.1.7** — Build API: POST /api/v1/models/select
+  - Input: { "agent_name": "...", "task_spec": "..." }
+  - Output: { "model": "...", "fallbacks": [...], "llm_path": "...", "estimated_cost": ... }
+- [ ] **3.1.8** — Unit test cho Dynamic Model Router integration
+  - Test task profile building
+  - Test model selection per agent
+  - Test fallback chains
+  - Test circuit breaker integration
+  - Test validation routing (v4.1)
 
 ### Output
-- Model router hoạt động
-- Fallback mechanism
+- Dynamic Model Router v4 tích hợp hoàn chỉnh
+- 5 models với scoring algorithm
+- Fallback chains per model
+- Circuit breaker integration
+- Validation routing (v4.1)
 - Tests pass
 
 ---
@@ -106,18 +125,31 @@ Quản lý prompt templates cho từng agent — tách rời code, dễ update, 
 
 ### Tasks
 - [ ] **3.3.1** — Load prompt templates từ Phase 0
-  - Files: `agents/prompts/gatekeeper.txt`, `coder.txt`, `reviewer.txt`, `mentor.txt`
+  - Files: `agents/prompts/gatekeeper.txt`, `coder.txt`, `reviewer.txt`, `mentor.txt`, `devops.txt`, `monitoring.txt`, `orchestrator.txt`
+  - 7 templates từ Phase 0
   - Verify templates có đầy đủ variables
-- [ ] **3.3.2** — Tạo orchestrator prompt template
-  - File: `agents/prompts/orchestrator.txt`
-  - Content: role, task, input format, output format, orchestration rules
-  - Variables: {project_state}, {task_breakdown}, {agent_capabilities}
-- [ ] **3.3.3** — Tạo devops prompt template
-  - File: `agents/prompts/devops.txt`
-  - Content: role, task, input format, output format, deployment rules
-  - Variables: {code_path}, {deployment_config}, {environment}
-- [ ] **3.3.4** — Tạo monitoring prompt template
-  - File: `agents/prompts/monitoring.txt`
+- [ ] **3.3.2** — Tạo validator prompt template (NEW v4.1)
+  - File: `agents/prompts/validator.txt`
+  - Content: role (cross-validate classification), task, input format, output format
+  - Variables: {user_request}, {gatekeeper_classification}, {project_context}
+  - Output format: {verdict: APPROVED/REJECTED/NEEDS_REVIEW, confidence, reason, suggested_classification}
+- [ ] **3.3.3** — Implement self-awareness prompts (v4)
+  - Mỗi model nhận system prompt với: role, strengths, limitations, handoff protocol
+  - Injected vào system prompt khi gọi model
+  - File: `shared/config/model_capabilities.yaml` (đã có từ Phase 0)
+- [ ] **3.3.4** — Implement prompt variable substitution
+  - Function: `render_prompt(template_name, variables) -> rendered_prompt`
+  - Support: {project_state}, {task_spec}, {laws}, {memory}, {agent_capabilities}
+- [ ] **3.3.5** — Implement prompt versioning
+  - Track prompt template versions
+  - Function: `get_prompt_version(template_name) -> version`
+  - A/B test prompts nếu cần
+- [ ] **3.3.6** — Unit test cho prompt templates
+  - Test load all templates
+  - Test validator template (v4.1)
+  - Test variable substitution
+  - Test self-awareness injection
+  - Test prompt versioning
   - Content: role, task, input format, output format, monitoring rules
   - Variables: {logs}, {metrics}, {baseline}
 - [ ] **3.3.5** — Implement prompt renderer
@@ -443,31 +475,41 @@ Agent theo dõi lỗi, phát hiện anomaly, cảnh báo regressions, gom feedba
 Test tích hợp toàn bộ agents trong workflow.
 
 ### Tasks
-- [ ] **3.11.1** — Test: Gatekeeper → Orchestrator → Specialist → Auditor → Done
+- [ ] **3.11.1** — Test: Gatekeeper → Validator → Orchestrator → Specialist → Auditor → Done
   - Tạo task mock
-  - Chạy workflow
+  - Chạy workflow với validation gate (v4.1)
   - Verify output đúng
-- [ ] **3.11.2** — Test: Escalation flow (Specialist fail → Mentor takeover)
+- [ ] **3.11.2** — Test: Validation gate flow (Gatekeeper → Validator → Orchestrator)
+  - Test APPROVED path (confidence ≥ 0.8)
+  - Test reanalyze path (confidence < 0.8)
+  - Test escalation path (REJECTED + HIGH risk)
+  - Test skip validation (LOW risk + TRIVIAL complexity)
+- [ ] **3.11.3** — Test: Escalation flow (Specialist fail → Mentor takeover)
   - Simulate Specialist fail 3 lần
   - Verify escalation → mentor takeover
   - Verify mentor resolves task
-- [ ] **3.11.3** — Test: Model routing theo complexity
-  - Tạo tasks với complexity khác nhau
-  - Verify routing đúng model
-- [ ] **3.11.4** — Test: Context builder với task phức tạp
+- [ ] **3.11.4** — Test: Dynamic Model Router v4
+  - Tạo tasks với task_type khác nhau
+  - Verify routing đúng model qua scoring algorithm
+  - Test fallback chains
+  - Test circuit breaker exclusion
+- [ ] **3.11.5** — Test: Context builder với task phức tạp
   - Tạo task với nhiều dependencies
   - Verify context đầy đủ, không vượt token limit
-- [ ] **3.11.5** — Test: OpenCode adapter (dev mode)
+- [ ] **3.11.6** — Test: OpenCode adapter (dev mode)
   - Tạo task mock
   - Delegate đến OpenCode tools
   - Verify execution result
-- [ ] **3.11.6** — Test: Prompt templates
+- [ ] **3.11.7** — Test: Prompt templates
   - Test render prompts với variables
+  - Test self-awareness injection (v4)
   - Verify prompt format đúng
 
 ### Output
 - Integration tests pass
 - Agents coordination ổn định
+- Validation gate (v4.1) hoạt động
+- Dynamic Model Router v4 hoạt động
 
 ---
 
@@ -475,21 +517,24 @@ Test tích hợp toàn bộ agents trong workflow.
 
 | # | Task | Status | Notes |
 |---|---|---|---|
-| 3.1 | Model Router | ⬜ | Complexity scoring + routing |
-| 3.2 | Agent Runtime Core | ⬜ | execute, retry, escalate, takeover |
-| 3.3 | Prompt Templates | ⬜ | 7 templates + renderer |
-| 3.4 | Context Builder | ⬜ | Task + module + memory + laws |
-| 3.5 | OpenCode Adapter | ⬜ | Dev mode execution |
-| 3.6 | Specialist Agent | ⬜ | Code, design, logic, algorithm |
-| 3.7 | Auditor Agent | ⬜ | 5 checks + verdict |
-| 3.8 | Supreme Mentor Agent | ⬜ | Deadlock, strategy, conflict |
-| 3.9 | DevOps Agent | ⬜ | Build, deploy, CI, rollback |
-| 3.10 | Monitoring Agent | ⬜ | Errors, anomaly, regression |
-| 3.11 | Agent Integration Tests | ⬜ | End-to-end workflow |
+| 3.1 | Dynamic Model Router (v4) | ⬜ | Scoring, fallback, circuit breaker, validation routing |
+| 3.2 | Agent Runtime Core | ⬜ | Execute, retry, escalate, takeover |
+| 3.3 | Prompt Templates | ⬜ | 8 templates (7 + validator v4.1), self-awareness |
+| 3.4 | Context Builder | ⬜ | Project state, memory, laws, dependencies |
+| 3.5 | LLM Gateway | ⬜ | LiteLLM + OpenCode, cost tracking |
+| 3.6 | Gatekeeper Agent | ⬜ | Classification, routing |
+| 3.7 | Validator Agent | ⬜ | NEW v4.1: Cross-validation |
+| 3.8 | Orchestrator Agent | ⬜ | Task breakdown, agent selection |
+| 3.9 | Specialist Agent | ⬜ | Code generation, OpenCode tools |
+| 3.10 | Auditor Agent | ⬜ | Code review, law compliance |
+| 3.11 | Mentor Agent | ⬜ | Deadlock resolution, quota |
+| 3.12 | DevOps Agent | ⬜ | Build, deploy, rollback |
+| 3.13 | Monitoring Agent | ⬜ | Error tracking, anomaly detection |
+| 3.14 | Agent Integration Tests | ⬜ | End-to-end, validation gate, DMR v4 |
 
 **Definition of Done cho Phase 3:**
-- [ ] Agent execution chạy thật
-- [ ] Routing theo complexity hoạt động
-- [ ] OpenCode adapter (dev mode) hoạt động
-- [ ] Retry & escalation ổn định
+- [ ] 8 agents hoạt động (7 + Validator v4.1)
+- [ ] Dynamic Model Router v4 tích hợp (5 models, scoring, fallback)
+- [ ] Prompt templates hoàn chỉnh (8 templates + self-awareness)
+- [ ] LLM Gateway hoạt động (LiteLLM + OpenCode)
 - [ ] Integration tests pass

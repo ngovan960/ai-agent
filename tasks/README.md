@@ -28,8 +28,8 @@ tasks/
 
 | Phase | Tên | Thời gian | Số tasks | Trạng thái |
 |---|---|---|---|---|
-| 0 | System Design | 1–2 tuần | 31 | ✅ Complete (v4) |
-| 1 | Core State System | 2–3 tuần | 48 | 🟡 Partial (60%) |
+| 0 | System Design | 1–2 tuần | 31 | ✅ Complete (v4.1) |
+| 1 | Core State System | 2–3 tuần | 56 | 🟡 Partial (65%) |
 | 2 | Workflow Engine | 2–3 tuần | 42 | ⬜ Pending |
 | 3 | Agent Runtime | 2–4 tuần | 55 | ⬜ Pending |
 | 4 | Verification Sandbox (Hybrid) | 2–3 tuần | 35 | ⬜ Pending |
@@ -39,18 +39,19 @@ tasks/
 | 8 | Deployment & Operations | 2–3 tuần | 32 | ⬜ Pending |
 | 9 | Optimization & Autonomy | Liên tục | 25 | ⬜ Pending |
 
-**Tổng cộng: ~358 tasks**
+**Tổng cộng: ~366 tasks** (8 new tasks added in v4.1: validation gate)
 
 ---
 
-## Hybrid Architecture (v4)
+## Hybrid Architecture (v4.1)
 
 ```
 FastAPI Backend (BRAINS)
-├── State Machine Engine (22 valid transitions)
+├── State Machine Engine (22 valid transitions, v3 gatecheck)
 ├── Workflow Engine
+├── Dual-Model Validation Gate (v4.1 — cross-validate before NEW → ANALYZING)
 ├── Dynamic Model Router (v4 — auto-select model by scoring)
-├── Agent Router & Dispatcher
+├── Agent Router & Dispatcher (8 agents: 7 + Validator)
 ├── LLM Gateway (LiteLLM + OpenCode)
 │   ├── Circuit Breaker (per-model)
 │   ├── Retry w/ Backoff
@@ -62,6 +63,12 @@ Execution Layer (Hybrid)
 ├── Dev Mode → OpenCode tools (bash, edit, write, read, glob, grep)
 └── Prod Mode → Docker sandbox (isolated container)
 ```
+
+### Dual-Model Validation Gate (v4.1)
+- **Gatekeeper** (DeepSeek V4 Flash): Classifies task
+- **Validator** (Qwen 3.5 Plus): Cross-validates classification
+- **Decision**: APPROVED ≥0.8 → pass | <0.8 → reanalyze | REJECTED → escalate
+- **Skip**: Risk=LOW AND Complexity=TRIVIAL/SIMPLE
 
 ### Dynamic Model Router (v4)
 - **5 Models**: DeepSeek V4 Flash, DeepSeek V4 Pro, Qwen 3.5 Plus, Qwen 3.6 Plus, MiniMax M2.7

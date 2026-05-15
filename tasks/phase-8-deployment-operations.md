@@ -10,6 +10,7 @@ AI deploy thật — autonomous staging deploy, safe production deploy, rollback
 | CI/CD | GitHub Actions |
 | Reverse Proxy | Nginx |
 | Cloud | AWS / Hetzner / GCP |
+| Models | DeepSeek V4 Flash/Pro, Qwen 3.5/3.6 Plus, MiniMax M2.7 |
 
 ---
 

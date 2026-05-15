@@ -97,7 +97,7 @@ Hệ thống điều phối AI SDLC mô phỏng một công ty phần mềm dùn
 ## 3. 5 Lớp chính
 
 ### 3.1. FastAPI Brain Layer
-- **State machine engine**: Validate và thực thi 18 state transitions
+- **State machine engine**: Validate và thực thi 22 state transitions
 - **Workflow engine**: Điều phối task lifecycle từ NEW → DONE
 - **Dual-model validation gate**: Cross-validate Gatekeeper classification trước khi pass to Orchestrator
 - **Agent router**: Dispatch agents dựa trên task type và complexity

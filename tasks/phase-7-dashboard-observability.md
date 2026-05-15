@@ -14,6 +14,7 @@ Visibility — quan sát toàn hệ thống, debug workflow dễ, theo dõi cost
 | Logs | Loki |
 | Visualization | Grafana |
 | Tracing | OpenTelemetry |
+| Models | DeepSeek V4 Flash/Pro, Qwen 3.5/3.6 Plus, MiniMax M2.7 |
 
 ---
 

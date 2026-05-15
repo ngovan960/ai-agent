@@ -11,6 +11,7 @@ Workflow chạy end-to-end từ nhận task đến hoàn thành.
 | State Store | PostgreSQL (Phase 1) |
 | Queue | Redis (Phase 1) |
 | Execution | OpenCode adapter (dev) + Docker sandbox (prod) |
+| Models | DeepSeek V4 Flash/Pro, Qwen 3.5/3.6 Plus, MiniMax M2.7 |
 
 ---
 
@@ -18,38 +19,48 @@ Workflow chạy end-to-end từ nhận task đến hoàn thành.
 
 ### Mô tả
 Build workflow engine tự động điều phối tasks qua các states.
+Workflow bắt đầu với **Validation Gate** (v4.1) trước khi pass task cho Orchestrator.
 
 ### Tasks
 - [ ] **2.1.1** — Thiết kế workflow engine architecture
   - File: `services/orchestrator/services/workflow_engine.py`
-  - Components: WorkflowRunner, NodeExecutor, EdgeRouter, StateUpdater
+  - Components: WorkflowRunner, NodeExecutor, EdgeRouter, StateUpdater, ValidationGate
   - Pattern: Event-driven state machine
+  - Flow: Receive → Validate (v4.1) → Plan → Assign → Execute → Verify → Review → Done
 - [ ] **2.1.2** — Implement WorkflowRunner
   - Function: `run_workflow(task_id) -> workflow_result`
-  - Logic: read task state → determine next node → execute → update state → repeat
+  - Logic: read task state → validate classification (v4.1) → determine next node → execute → update state → repeat
   - Async implementation
-- [ ] **2.1.3** — Implement NodeExecutor
+- [ ] **2.1.3** — Implement ValidationGate (NEW v4.1)
+  - File: `services/orchestrator/services/nodes/validate.py`
+  - Input: user request + Gatekeeper classification
+  - Action: call Validator agent (Qwen 3.5 Plus) to cross-validate
+  - Decision: APPROVED ≥ 0.8 → pass, < 0.8 → reanalyze, REJECTED → escalate to Mentor
+  - Skip condition: Risk=LOW AND Complexity=TRIVIAL/SIMPLE
+  - Output: validated_classification or escalation
+- [ ] **2.1.4** — Implement NodeExecutor
   - Function: `execute_node(node_name, task_id, context) -> node_result`
-  - Nodes: receive_task, plan, assign, execute, verify, review, done
+  - Nodes: receive_task, validate (v4.1), plan, assign, execute, verify, review, done
   - Each node has: input, output, error_handler
-- [ ] **2.1.4** — Implement EdgeRouter
+- [ ] **2.1.5** — Implement EdgeRouter
   - Function: `route_edge(current_node, result) -> next_node`
   - Conditional routing based on node result
-  - Rules: verify pass → review, verify fail → retry, review approve → done
-- [ ] **2.1.5** — Implement StateUpdater
-  - Function: `update_state(task_id, new_status, context) -> task`
-  - Uses state_transitions.py từ Phase 0
+  - Rules: validate approved → plan, validate rejected → escalate, verify pass → review, verify fail → retry
+- [ ] **2.1.6** — Implement StateUpdater
+  - Function: `update_state(task_id, new_status, context, has_validated=True) -> task`
+  - Uses state_transitions.py v3 từ Phase 0 (validate_transition_with_gatecheck)
   - Creates audit log entry
-- [ ] **2.1.6** — Unit test cho workflow engine
-  - Test run_workflow (happy path)
+- [ ] **2.1.7** — Unit test cho workflow engine
+  - Test run_workflow (happy path with validation)
+  - Test validation gate (approved, rejected, needs_review)
   - Test node execution
   - Test edge routing
-  - Test state update
+  - Test state update with gatecheck
   - Test error handling
 
 ### Output
-- Workflow engine hoạt động
-- 5 core components
+- Workflow engine hoạt động với Validation Gate (v4.1)
+- 6 core components + ValidationGate
 - Tests pass
 
 ---
@@ -308,47 +319,134 @@ Tích hợp Gatekeeper agent vào workflow engine.
 
 ---
 
-## 2.8. Orchestrator Agent Integration
+## 2.7. Gatekeeper Agent Integration
 
 ### Mô tả
-Tích hợp Orchestrator agent vào workflow engine.
+Tích hợp Gatekeeper agent vào workflow engine — node đầu tiên phân loại task.
 
 ### Tasks
-- [ ] **2.8.1** — Implement Orchestrator service
+- [ ] **2.7.1** — Implement Gatekeeper service
+  - File: `services/orchestrator/services/gatekeeper_service.py`
+  - Function: `gatekeeper_process(user_request) -> GatekeeperClassification`
+  - Steps: parse request → lookup memory → classify (task_type, complexity, risk_level, effort) → route
+  - Model: DeepSeek V4 Flash (via Dynamic Model Router v4)
+- [ ] **2.7.2** — Implement Gatekeeper: nhận yêu cầu từ user
+  - Input: natural language request
+  - Function: `parse_request(request) -> parsed_request`
+  - Parse: extract intent, entities, constraints
+- [ ] **2.7.3** — Implement Gatekeeper: kiểm tra task đã từng làm chưa
+  - Query task registry + memory
+  - Function: `check_existing_task(parsed_request) -> existing_task | None`
+  - Nếu có → return cached_solution
+- [ ] **2.7.4** — Implement Gatekeeper: phân loại task theo độ khó
+  - Scoring: complexity (trivial/simple/medium/complex/critical), risk (low/medium/high/critical)
+  - Function: `classify_complexity(parsed_request) -> { level, score }`
+- [ ] **2.7.5** — Implement Gatekeeper: quyết định routing
+  - Rule: easy → local agent, medium → specialist, hard → orchestrator plan
+  - Function: `route_decision(complexity) -> routing_plan`
+  - Uses Dynamic Model Router v4 for model selection
+- [ ] **2.7.6** — Tích hợp Gatekeeper vào workflow (node receive_task)
+  - Gatekeeper = node đầu tiên trong workflow
+  - Output: GatekeeperClassification (task_type, complexity, risk_level, effort, confidence)
+- [ ] **2.7.7** — Unit test cho Gatekeeper
+  - Test parse request
+  - Test check existing task
+  - Test classify complexity
+  - Test route decision
+  - Test model routing via Dynamic Model Router
+
+### Output
+- Gatekeeper agent hoạt động
+- Tích hợp vào workflow
+- Tests pass
+
+---
+
+## 2.8. Validator Agent Integration (NEW v4.1)
+
+### Mô tả
+Tích hợp Validator agent — cross-validate Gatekeeper classification trước khi pass cho Orchestrator.
+
+### Tasks
+- [ ] **2.8.1** — Implement Validator service
+  - File: `services/orchestrator/services/validator_service.py`
+  - Function: `validate_classification(user_request, gatekeeper_output) -> ValidatorVerdict`
+  - Model: Qwen 3.5 Plus (via Dynamic Model Router v4)
+  - Steps: review classification → check task_type accuracy → check complexity → check risk_level → verdict
+- [ ] **2.8.2** — Implement validation decision logic
+  - APPROVED ≥ 0.8 → pass to Orchestrator
+  - APPROVED < 0.8 → Gatekeeper re-analyze
+  - NEEDS_REVIEW → Mentor review
+  - REJECTED → Escalate to Mentor (HIGH/CRITICAL) hoặc re-analyze
+- [ ] **2.8.3** — Implement validation skip logic
+  - Skip nếu: Risk=LOW AND Complexity=TRIVIAL/SIMPLE
+  - Function: `should_skip_validation(risk_level, complexity) -> bool`
+- [ ] **2.8.4** — Tích hợp Validator vào workflow (node validate)
+  - Validator = node thứ hai trong workflow (sau Gatekeeper, trước Orchestrator)
+  - Output: ValidatorVerdict (verdict, confidence, reason, suggested_classification)
+- [ ] **2.8.5** — Implement validation retry loop
+  - Nếu reanalyze → Gatekeeper re-classifies → Validator re-validates (max 2 loops)
+  - Nếu vẫn conflict → escalate to Mentor
+- [ ] **2.8.6** — Unit test cho Validator
+  - Test approved classification
+  - Test rejected classification
+  - Test needs_review
+  - Test skip validation
+  - Test retry loop
+  - Test escalation on conflict
+
+### Output
+- Validator agent hoạt động
+- Tích hợp vào workflow (node validate)
+- Tests pass
+
+---
+
+## 2.9. Orchestrator Agent Integration
+
+### Mô tả
+Tích hợp Orchestrator agent vào workflow engine — nhận validated classification từ Validator.
+
+### Tasks
+- [ ] **2.9.1** — Implement Orchestrator service
   - File: `services/orchestrator/services/orchestrator_service.py`
-  - Function: `orchestrate(classified_task) -> workflow_plan`
-  - Steps: get project state → breakdown task → select agents → create plan
-- [ ] **2.8.2** — Implement Orchestrator: hiểu trạng thái dự án
+  - Function: `orchestrate(validated_classification) -> workflow_plan`
+  - Steps: get project state → breakdown task → select agents (via Dynamic Model Router v4) → create plan
+- [ ] **2.9.2** — Implement Orchestrator: hiểu trạng thái dự án
   - Function: `get_project_state(project_id) -> project_state`
   - Query: modules status, tasks status, dependencies, blockers
-- [ ] **2.8.3** — Implement Orchestrator: chia task thành các bước nhỏ
+- [ ] **2.9.3** — Implement Orchestrator: chia task thành các bước nhỏ
   - Input: task_spec + project_state
   - Output: task_breakdown_list (title, description, expected_output, dependencies)
   - Function: `breakdown_task(task_spec, project_state) -> subtasks`
-- [ ] **2.8.4** — Implement Orchestrator: chọn agent phù hợp
+- [ ] **2.9.4** — Implement Orchestrator: chọn agent phù hợp
   - Input: subtask + complexity
-  - Output: agent_assignment (gatekeeper/specialist/auditor/mentor)
+  - Output: agent_assignment + model_selection (via Dynamic Model Router v4)
   - Function: `select_agent(subtask) -> agent_name`
-- [ ] **2.8.5** — Implement Orchestrator: điều phối luồng làm việc
+  - Uses model_router.py for dynamic model selection
+- [ ] **2.9.5** — Implement Orchestrator: điều phối luồng làm việc
   - Function: `orchestrate(subtasks, assignments) -> workflow_plan`
   - Output: execution_order, parallel_tasks, dependencies
-- [ ] **2.8.6** — Implement Orchestrator: quyết định next action
+- [ ] **2.9.6** — Implement Orchestrator: quyết định next action
   - Rule: verify fail → retry (max 2), retry > 2 → escalate
   - Rule: review = REVISE → retry, review = ESCALATE → takeover
+  - Rule: validate rejected → reanalyze or escalate (v4.1)
   - Function: `decide_next_action(task_result) -> action`
-- [ ] **2.8.7** — Tích hợp Orchestrator vào workflow (nodes plan + assign)
+- [ ] **2.9.7** — Tích hợp Orchestrator vào workflow (nodes plan + assign)
   - Orchestrator = node "plan" + "assign" trong workflow
-  - Output: workflow_plan + agent_assignments
-- [ ] **2.8.8** — Unit test cho Orchestrator
+  - Input: validated classification từ Validator (v4.1)
+  - Output: workflow_plan + agent_assignments + model_selections
+- [ ] **2.9.8** — Unit test cho Orchestrator
   - Test get project state
   - Test breakdown task
-  - Test select agent
+  - Test select agent with Dynamic Model Router
   - Test orchestrate
   - Test decide next action
+  - Test validation gate integration
 
 ### Output
 - Orchestrator agent hoạt động
-- Tích hợp vào workflow
+- Tích hợp vào workflow với validated input (v4.1)
 - Tests pass
 
 ---
@@ -357,18 +455,19 @@ Tích hợp Orchestrator agent vào workflow engine.
 
 | # | Task | Status | Notes |
 |---|---|---|---|
-| 2.1 | Workflow Engine Core | ⬜ | State machine tự build |
-| 2.2 | Workflow Nodes | ⬜ | 7 nodes |
+| 2.1 | Workflow Engine Core | ⬜ | State machine tự build + ValidationGate (v4.1) |
+| 2.2 | Workflow Nodes | ⬜ | 8 nodes (thêm validate node v4.1) |
 | 2.3 | Dependency Management | ⬜ | Graph + circular detection |
 | 2.4 | Escalation Engine | ⬜ | Auto-escalate khi retry > 2 |
 | 2.5 | Takeover Mode | ⬜ | Mentor rewrite/redesign/override |
 | 2.6 | Workflow Orchestration | ⬜ | Error handling, timeout, recovery |
-| 2.7 | Gatekeeper Integration | ⬜ | Node đầu tiên |
-| 2.8 | Orchestrator Integration | ⬜ | Plan + assign nodes |
+| 2.7 | Gatekeeper Integration | ⬜ | Node đầu tiên, Dynamic Model Router v4 |
+| 2.8 | Validator Integration | ⬜ | NEW v4.1: Cross-validation node |
+| 2.9 | Orchestrator Integration | ⬜ | Plan + assign, validated input (v4.1) |
 
 **Definition of Done cho Phase 2:**
-- [ ] Workflow engine chạy end-to-end
-- [ ] 7 nodes hoạt động
+- [ ] Workflow engine chạy end-to-end với Validation Gate (v4.1)
+- [ ] 8 nodes hoạt động (thêm validate node)
 - [ ] Retry & escalation hoạt động
 - [ ] Agent coordination cơ bản chạy được
 - [ ] Integration tests pass

@@ -1,7 +1,7 @@
 # PHASE 5 — GOVERNANCE LAYER (2 tuần)
 
 ## Mục tiêu
-"AI discipline" — ràng buộc AI bởi luật, confidence scoring, cost optimization.
+"AI discipline" — ràng buộc AI bởi luật, confidence scoring, cost optimization, dual-model validation.
 
 ## Tech Stack
 | Thành phần | Tech |
@@ -9,14 +9,57 @@
 | Law Engine | YAML parser + custom rules |
 | Confidence | Custom scoring algorithm |
 | Cost Tracking | Redis + PostgreSQL |
+| Validation | Dual-Model Validation Gate (v4.1) |
 
 ---
 
-## 5.1. Confidence Engine
+## 5.1. Quality Check Governance (7 Steps)
+
+### Mô tả
+Governance cho toàn bộ 7 bước kiểm tra chất lượng trong workflow.
+
+### Tasks
+- [ ] **5.1.1** — Implement validation gate governance (NEW v4.1)
+  - Rule: MEDIUM+ risk tasks require dual-model validation
+  - Rule: LOW risk + TRIVIAL/SIMPLE complexity can skip
+  - Function: `enforce_validation_requirement(task) -> bool`
+- [ ] **5.1.2** — Implement Gatekeeper validation governance
+  - Rule: Gatekeeper classification must have confidence ≥ 0.5
+  - Function: `validate_gatekeeper_output(classification) -> bool`
+- [ ] **5.1.3** — Implement Orchestrator planning governance
+  - Rule: Task breakdown must have expected_output defined
+  - Rule: Dependencies must be resolvable
+  - Function: `validate_orchestrator_plan(plan) -> bool`
+- [ ] **5.1.4** — Implement verification sandbox governance
+  - Rule: All 5 checks must pass (lint, unit test, integration, build, security)
+  - Rule: Max 2 retries before escalation
+  - Function: `validate_verification_result(result) -> bool`
+- [ ] **5.1.5** — Implement Auditor review governance
+  - Rule: Auditor must check all 20 laws
+  - Rule: Confidence score must be calculated
+  - Function: `validate_auditor_review(review) -> bool`
+- [ ] **5.1.6** — Implement Mentor escalation governance
+  - Rule: Mentor quota enforced (10 calls/day)
+  - Rule: Mentor must provide reason for decision
+  - Rule: Lesson learned must be stored
+  - Function: `enforce_mentor_governance(task) -> bool`
+- [ ] **5.1.7** — Implement audit trail governance
+  - Rule: Every state change must be logged
+  - Rule: Audit logs are immutable
+  - Function: `enforce_audit_trail(action) -> bool`
+
+### Output
+- 7 quality check governance rules enforced
+- Validation gate governance integrated
+- Tests pass
+
+---
+
+## 5.2. Confidence Engine
 
 ### Mô tả
 Điểm tin cậy tính bằng dữ liệu thực tế, không cảm tính.
-Công thức: `Confidence = (T × 0.35) + (L × 0.15) - (P × 0.20) + (A × 0.30)`
+Công thức: `Confidence = clamp(T × 0.35 + L × 0.15 - P × 0.20 + A × 0.30, 0, 1)`
 
 ### Tasks
 - [ ] **5.1.1** — Implement test pass rate calculation (T)
@@ -62,7 +105,7 @@ Công thức: `Confidence = (T × 0.35) + (L × 0.15) - (P × 0.20) + (A × 0.30
 
 ---
 
-## 5.2. Architectural Law Engine
+## 5.3. Architectural Law Engine
 
 ### Mô tả
 Kiểm tra code compliance với architectural laws từ laws.yaml.
@@ -132,6 +175,7 @@ Giới hạn chi phí — theo dõi token usage, mentor calls, retry loops.
   - Alert khi cost vượt threshold (daily, weekly)
   - Function: `check_cost_alerts() -> alerts`
 - [ ] **5.3.6** — Implement cost governor rules
+  - Rule: Uses Dynamic Model Router v4 for cost-efficient model selection
   - Rule: task nhỏ → Flash, trung bình → Pro, lớn → Mentor (nếu còn quota)
   - Function: `apply_cost_governance(task) -> model_selection`
 - [ ] **5.3.7** — Build API: GET /api/v1/cost-stats
@@ -232,15 +276,18 @@ Tích hợp toàn bộ governance components vào workflow.
 
 | # | Task | Status | Notes |
 |---|---|---|---|
-| 5.1 | Confidence Engine | ⬜ | Formula: T×0.35 + L×0.15 - P×0.20 + A×0.30 |
-| 5.2 | Architectural Law Engine | ⬜ | Load từ laws.yaml |
-| 5.3 | Cost Governor | ⬜ | Token tracking, mentor limit |
-| 5.4 | Risk Classification | ⬜ | LOW/MEDIUM/HIGH/CRITICAL |
-| 5.5 | Governance Integration | ⬜ | Tích hợp vào workflow |
+| 5.1 | Quality Check Governance | ⬜ | 7 quality checks, validation gate (v4.1) |
+| 5.2 | Confidence Engine | ⬜ | Formula: clamp(T×0.35 + L×0.15 - P×0.20 + A×0.30, 0, 1) |
+| 5.3 | Architectural Law Engine | ⬜ | 20 laws từ laws.yaml |
+| 5.4 | Cost Governor | ⬜ | Token tracking, mentor limit, DMR v4 |
+| 5.5 | Risk Classification | ⬜ | LOW/MEDIUM/HIGH/CRITICAL, execution mode |
+| 5.6 | Governance Integration | ⬜ | Tích hợp vào workflow |
 
 **Definition of Done cho Phase 5:**
+- [ ] 7 quality check governance rules enforced
 - [ ] Confidence engine hoạt động
-- [ ] Law engine hoạt động
-- [ ] Cost governor hoạt động
+- [ ] Law engine hoạt động (20 laws)
+- [ ] Cost governor hoạt động (Dynamic Model Router v4)
 - [ ] Risk classification hoạt động
+- [ ] Governance integration end-to-end
 - [ ] Integration tests pass
