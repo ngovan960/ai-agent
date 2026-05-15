@@ -90,6 +90,7 @@ def validate_classification(request: ValidationRequest) -> ValidationResponse:
     if not requires_validator:
         final_classification = gk
         verdict = ValidationVerdict.APPROVED
+        confidence = gk.confidence
         validator_verdict = ValidatorVerdict(
             verdict=ValidationVerdict.APPROVED,
             confidence=1.0,

@@ -4,10 +4,20 @@ from shared.models.registry import Retry, AuditLog
 from shared.schemas.retry_audit import RetryCreate, AuditLogCreate, AuditLogQuery
 from typing import Optional, List, Tuple
 import logging
+import uuid
 
 logger = logging.getLogger(__name__)
 
 MAX_RETRIES_PER_TASK = 5
+
+
+def _normalize_task_id(task_id):
+    """Convert task_id to UUID object for consistent comparison."""
+    if isinstance(task_id, uuid.UUID):
+        return task_id
+    if isinstance(task_id, str):
+        return uuid.UUID(task_id)
+    return task_id
 
 
 class RetryService:
@@ -36,11 +46,13 @@ class RetryService:
         return retry
 
     async def get_retries_by_task(self, task_id) -> List[Retry]:
+        task_id = _normalize_task_id(task_id)
         stmt = select(Retry).where(Retry.task_id == task_id).order_by(Retry.attempt_number)
         result = await self.db.execute(stmt)
         return list(result.scalars().all())
 
     async def get_retry_stats(self, task_id) -> dict:
+        task_id = _normalize_task_id(task_id)
         stmt = select(Retry).where(Retry.task_id == task_id).order_by(Retry.attempt_number.desc())
         result = await self.db.execute(stmt)
         retries = list(result.scalars().all())
@@ -123,6 +135,7 @@ class AuditService:
         return logs, total
 
     async def get_audit_logs_by_task(self, task_id) -> List[AuditLog]:
+        task_id = _normalize_task_id(task_id)
         stmt = select(AuditLog).where(AuditLog.task_id == task_id).order_by(AuditLog.created_at.desc())
         result = await self.db.execute(stmt)
         return list(result.scalars().all())
@@ -131,8 +144,12 @@ class AuditService:
         logs, _ = await self.query_audit_logs(query)
         lines = ["id,task_id,action,actor,actor_type,result,message,created_at"]
         for log in logs:
+            task_id_str = str(log.task_id) if log.task_id else ""
+            id_str = str(log.id)
+            created_at_str = str(log.created_at) if log.created_at else ""
+            message_str = str(log.message or "").replace(chr(34), chr(34)+chr(34))
             lines.append(
-                f"{log.id},{log.task_id},{log.action},{log.actor},{log.actor_type},{log.result},"
-                f'"{(log.message or "").replace(chr(34), chr(34)+chr(34))}",{log.created_at}'
+                f"{id_str},{task_id_str},{log.action},{log.actor},{log.actor_type},{log.result},"
+                f'"{message_str}",{created_at_str}'
             )
         return "\n".join(lines)

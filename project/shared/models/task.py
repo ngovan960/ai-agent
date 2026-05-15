@@ -1,8 +1,8 @@
-from shared.models.base import Base
+from shared.models.base import Base, UUID
 from sqlalchemy import (
     Column, String, Text, Enum, ForeignKey, Float, Integer, UniqueConstraint, CheckConstraint
 )
-from sqlalchemy.dialects.postgresql import UUID, JSON
+from sqlalchemy.dialects.postgresql import JSON
 from sqlalchemy.orm import relationship
 import enum
 
@@ -38,8 +38,8 @@ class RiskLevel(str, enum.Enum):
 class Task(Base):
     __tablename__ = "tasks"
 
-    project_id = Column(UUID(as_uuid=True), ForeignKey("projects.id", ondelete="CASCADE"), nullable=False)
-    module_id = Column(UUID(as_uuid=True), ForeignKey("modules.id", ondelete="SET NULL"))
+    project_id = Column(UUID(), ForeignKey("projects.id", ondelete="CASCADE"), nullable=False)
+    module_id = Column(UUID(), ForeignKey("modules.id", ondelete="SET NULL"))
     title = Column(String(500), nullable=False)
     description = Column(Text)
     owner = Column(String(100))
@@ -53,7 +53,7 @@ class Task(Base):
     risk_level = Column(Enum(RiskLevel), nullable=False, default=RiskLevel.LOW)
     cancellation_reason = Column(Text)
     failure_reason = Column(Text)
-    created_by = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"))
+    created_by = Column(UUID(), ForeignKey("users.id", ondelete="SET NULL"))
     completed_at = Column(Base.created_at.type)
     failed_at = Column(Base.created_at.type)
     cancelled_at = Column(Base.created_at.type)
@@ -91,7 +91,7 @@ class Task(Base):
 class TaskOutput(Base):
     __tablename__ = "task_outputs"
 
-    task_id = Column(UUID(as_uuid=True), ForeignKey("tasks.id", ondelete="CASCADE"), nullable=False)
+    task_id = Column(UUID(), ForeignKey("tasks.id", ondelete="CASCADE"), nullable=False)
     output_type = Column(String(50), nullable=False)
     content = Column(JSON, nullable=False, default=lambda: {})
 
@@ -101,8 +101,8 @@ class TaskOutput(Base):
 class TaskDependency(Base):
     __tablename__ = "task_dependencies"
 
-    task_id = Column(UUID(as_uuid=True), ForeignKey("tasks.id", ondelete="CASCADE"), nullable=False)
-    depends_on_task_id = Column(UUID(as_uuid=True), ForeignKey("tasks.id", ondelete="CASCADE"), nullable=False)
+    task_id = Column(UUID(), ForeignKey("tasks.id", ondelete="CASCADE"), nullable=False)
+    depends_on_task_id = Column(UUID(), ForeignKey("tasks.id", ondelete="CASCADE"), nullable=False)
     dependency_type = Column(String(50), nullable=False, default="blocks")
 
     __table_args__ = (

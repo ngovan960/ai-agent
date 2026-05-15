@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.ext.asyncio import AsyncSession
-from database.database import get_db
+from shared.database import get_db
 from shared.schemas.retry_audit import (
     RetryCreate,
     RetryResponse,
@@ -99,6 +99,6 @@ async def export_audit_logs_csv(
     result: str = None,
     db: AsyncSession = Depends(get_db),
 ):
-    query = AuditLogQuery(task_id=task_id, actor=actor, result=result, limit=10000)
+    query = AuditLogQuery(task_id=task_id, actor=actor, result=result, limit=1000)
     csv_content = await AuditService(db).export_audit_logs_csv(query)
     return {"csv": csv_content}

@@ -7,7 +7,7 @@ from sqlalchemy.orm import selectinload
 
 from shared.models.task import Task, TaskDependency, TaskOutput
 from shared.schemas.task import TaskCreate, TaskUpdate, StateTransitionRequest
-from shared.config.state_transitions import StateTransitions
+from shared.config.state_transitions import validate_transition
 from shared.concurrency import OptimisticLockError
 
 
@@ -121,7 +121,7 @@ async def transition_task_state(
     current_status = task.status.value if hasattr(task.status, "value") else task.status
     target_status = request.target_status.value if hasattr(request.target_status, "value") else request.target_status
 
-    is_valid, error = StateTransitions.validate_transition(current_status, target_status)
+    is_valid, error = validate_transition(current_status, target_status)
     if not is_valid:
         return None, error
 

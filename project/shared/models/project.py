@@ -1,6 +1,5 @@
-from shared.models.base import Base
+from shared.models.base import Base, UUID
 from sqlalchemy import Column, String, Text, Enum, ForeignKey, JSON
-from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship
 import enum
 
@@ -21,7 +20,7 @@ class Project(Base):
     tech_stack = Column(JSON, default=lambda: [])
     architecture = Column(Text)
     rules = Column(JSON, default=lambda: {})
-    created_by = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"))
+    created_by = Column(UUID(), ForeignKey("users.id", ondelete="SET NULL"))
 
     created_by_user = relationship("User", back_populates="projects")
     modules = relationship("Module", back_populates="project", cascade="all, delete-orphan")

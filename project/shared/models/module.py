@@ -1,6 +1,5 @@
-from shared.models.base import Base
+from shared.models.base import Base, UUID
 from sqlalchemy import Column, String, Text, Enum, ForeignKey, UniqueConstraint
-from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship
 import enum
 
@@ -16,7 +15,7 @@ class ModuleStatus(str, enum.Enum):
 class Module(Base):
     __tablename__ = "modules"
 
-    project_id = Column(UUID(as_uuid=True), ForeignKey("projects.id", ondelete="CASCADE"), nullable=False)
+    project_id = Column(UUID(), ForeignKey("projects.id", ondelete="CASCADE"), nullable=False)
     name = Column(String(255), nullable=False)
     description = Column(Text)
     status = Column(Enum(ModuleStatus), nullable=False, default=ModuleStatus.PENDING)
@@ -44,8 +43,8 @@ class Module(Base):
 class ModuleDependency(Base):
     __tablename__ = "module_dependencies"
 
-    module_id = Column(UUID(as_uuid=True), ForeignKey("modules.id", ondelete="CASCADE"), nullable=False)
-    depends_on_module_id = Column(UUID(as_uuid=True), ForeignKey("modules.id", ondelete="CASCADE"), nullable=False)
+    module_id = Column(UUID(), ForeignKey("modules.id", ondelete="CASCADE"), nullable=False)
+    depends_on_module_id = Column(UUID(), ForeignKey("modules.id", ondelete="CASCADE"), nullable=False)
 
     __table_args__ = (
         UniqueConstraint("module_id", "depends_on_module_id", name="uq_module_dep"),

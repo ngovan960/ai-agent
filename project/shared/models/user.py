@@ -1,6 +1,5 @@
-from shared.models.base import Base
-from sqlalchemy import Column, String, Text, Enum, ForeignKey, JSON, Boolean
-from sqlalchemy.dialects.postgresql import UUID
+from shared.models.base import Base, UUID
+from sqlalchemy import Column, String, Text, Enum, ForeignKey, JSON, Boolean, DateTime
 from sqlalchemy.orm import relationship
 import enum
 
@@ -29,7 +28,7 @@ class User(Base):
 class ApiKey(Base):
     __tablename__ = "api_keys"
 
-    user_id = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    user_id = Column(UUID(), ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
     name = Column(String(255), nullable=False)
     key_hash = Column(String(255), nullable=False)
     key_prefix = Column(String(20), nullable=False)
