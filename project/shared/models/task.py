@@ -57,6 +57,7 @@ class Task(Base):
     completed_at = Column(Base.created_at.type)
     failed_at = Column(Base.created_at.type)
     cancelled_at = Column(Base.created_at.type)
+    version = Column(Integer, nullable=False, default=0)
 
     __table_args__ = (
         CheckConstraint("confidence >= 0 AND confidence <= 1", name="ck_task_confidence"),

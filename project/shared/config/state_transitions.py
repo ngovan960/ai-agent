@@ -2,7 +2,7 @@
 State Transition Rules - AI SDLC System
 
 Defines all valid state transitions for tasks in the workflow.
-Version 3.0.0 — Added dual-model validation gate before NEW → ANALYZING.
+Version 4.0.0 — Added BLOCKED timeout escalation, optimistic locking support.
 """
 
 VALID_TRANSITIONS = {
@@ -13,7 +13,7 @@ VALID_TRANSITIONS = {
     "VERIFYING": ["REVIEWING", "IMPLEMENTING", "FAILED"],
     "REVIEWING": ["DONE", "IMPLEMENTING", "ESCALATED", "CANCELLED"],
     "ESCALATED": ["PLANNING", "FAILED"],
-    "BLOCKED": ["PLANNING", "CANCELLED"],
+    "BLOCKED": ["PLANNING", "CANCELLED", "ESCALATED"],
     "DONE": [],
     "FAILED": [],
     "CANCELLED": [],
@@ -44,6 +44,7 @@ TRANSITION_CONDITIONS = {
     ("ESCALATED", "FAILED"): "Mentor reject task",
     ("BLOCKED", "PLANNING"): "Dependency da hoan thanh",
     ("BLOCKED", "CANCELLED"): "User huy task",
+    ("BLOCKED", "ESCALATED"): "BLOCKED timeout (120+ minutes) — auto-escalate to Mentor",
 }
 
 INVALID_TRANSITIONS = [
@@ -178,3 +179,29 @@ def validate_transition_with_gatecheck(
             return False, "NEW → ANALYZING requires dual-model validation approval. Submit to /api/v1/validation first."
 
     return validate_transition(current_status, new_status, has_verified_output)
+
+
+BLOCKED_TIMEOUT_MINUTES = 120
+BLOCKED_WARNING_MINUTES = 60
+STUCK_TASK_TIMEOUT_MINUTES = 30
+STUCK_TASK_ESCALATION_MINUTES = 60
+
+
+def get_blocked_timeout_minutes() -> int:
+    """Get the timeout in minutes before BLOCKED tasks are auto-escalated."""
+    return BLOCKED_TIMEOUT_MINUTES
+
+
+def get_blocked_warning_minutes() -> int:
+    """Get the timeout in minutes before BLOCKED warning is sent."""
+    return BLOCKED_WARNING_MINUTES
+
+
+def should_send_blocked_warning(minutes_blocked: int) -> bool:
+    """Check if a blocked warning should be sent."""
+    return minutes_blocked >= BLOCKED_WARNING_MINUTES
+
+
+def should_auto_escalate_blocked(minutes_blocked: int) -> bool:
+    """Check if a BLOCKED task should be auto-escalated."""
+    return minutes_blocked >= BLOCKED_TIMEOUT_MINUTES

@@ -1197,3 +1197,190 @@ Required log fields cho mọi error:
 | `trace_id` | Distributed trace ID | Yes |
 | `user_id` | User ID | Yes |
 | `timestamp` | ISO 8601 timestamp | Yes |
+
+---
+
+## 12. Concurrency & Locking Strategy (v4.1 — Risk #1 Fix)
+
+### 12.1 Optimistic Locking
+
+Mọi state transition sử dụng **optimistic locking** với `version` column trên tasks table:
+
+```python
+# shared/models/task.py
+version = Column(Integer, nullable=False, default=0)
+
+# services/tasks.py — transition_task_state
+async def transition_task_state(db, task_id, request, expected_version=None):
+    task = await db.execute(
+        select(Task).where(Task.id == task_id).with_for_update()
+    )
+    if expected_version and task.version != expected_version:
+        raise OptimisticLockError(
+            f"Task {task_id} was modified by another process"
+        )
+    task.status = request.target_status
+    task.version += 1  # Increment on every update
+```
+
+### 12.2 Retry on Conflict
+
+Decorator `@retry_on_conflict` tự động retry khi phát hiện concurrent update:
+
+```python
+from shared.concurrency import retry_on_conflict, OptimisticLockError
+
+@retry_on_conflict(max_retries=3, base_delay=0.1, max_delay=2.0)
+async def transition_task_state(db, task_id, request, expected_version=None):
+    ...
+```
+
+Retry với exponential backoff: 0.1s → 0.2s → 0.4s → fail
+
+### 12.3 Stuck Task Detection
+
+Background job chạy định kỳ (mỗi 5 phút) để phát hiện và auto-escalate stuck tasks:
+
+| Timeout | Action |
+|---|---|
+| 30 phút | Detect stuck task, log warning |
+| 60 phút | Auto-escalate to ESCALATED state |
+| 120 phút (BLOCKED) | Auto-escalate BLOCKED → ESCALATED |
+
+```python
+from services.orchestrator.services.stuck_task_detector import run_stuck_task_detection
+
+# Run every 5 minutes
+result = await run_stuck_task_detection(db)
+# result: {
+#   "stuck_tasks_detected": 3,
+#   "blocked_tasks_auto_escalated": 1,
+#   "stuck_tasks_auto_escalated": 2,
+# }
+```
+
+### 12.4 Zombie Task Prevention
+
+- `SELECT FOR UPDATE` locks task row during transition
+- Version increment ensures concurrent updates are detected
+- Background detector catches any tasks that slip through
+- Admin API for manual force transition (Phase 2)
+
+---
+
+## 13. Context Window Management (v4.1 — Risk #2 Fix)
+
+### 13.1 Priority-Based Truncation
+
+Context builder với priority levels (0-100) đảm bảo thông tin quan trọng nhất luôn được giữ:
+
+| Priority | Section | Always Included? |
+|---|---|---|
+| 100 | Task description | Yes |
+| 90 | Output format | Yes |
+| 80 | System prompt / agent role | Yes |
+| 70 | Self-awareness prompt | Yes |
+| 60 | Validation gate results | Yes |
+| 50 | Relevant memory | Truncate if needed |
+| 40 | Module specs | Truncate if needed |
+| 30 | Architectural laws | Truncate if needed |
+| 20 | Full codebase | Truncate first |
+| 10 | Historical logs | Truncate first |
+
+```python
+from services.orchestrator.services.context_builder import ContextBuilder
+
+builder = ContextBuilder(max_tokens=128000, safety_margin=4096)
+builder.add_section("Task Description", task_desc, priority=100)
+builder.add_section("Architectural Laws", laws, priority=30)
+builder.add_section("Relevant Memory", memory, priority=50)
+context = builder.build()
+```
+
+### 13.2 "Lost in the Middle" Mitigation
+
+Research cho thấy LLMs chú ý nhất đến:
+- **Đầu context** (~20% đầu)
+- **Cuối context** (~20% cuối)
+- **Ít chú ý nhất**: giữa context (~60%)
+
+ContextBuilder tự động reorder sections:
+- Priority >= 80: **BEGINNING**
+- Priority 40-79: **MIDDLE**
+- Priority < 40: **END**
+
+### 13.3 Context Overflow Protocol
+
+Khi context vẫn vượt limit sau truncation:
+1. Log overflow event
+2. Escalate task — yêu cầu user chia nhỏ task
+3. Force switch sang model có context limit lớn hơn (Qwen 3.6 Plus: 1M tokens)
+4. Reduce context — chỉ giữ task description + essential info
+
+---
+
+## 14. BLOCKED State Resolution Protocol (v4.1 — Risk #3 Fix)
+
+### 14.1 BLOCKED Timeout Mechanism
+
+BLOCKED state không còn là "hố đen" — có timeout và auto-escalation:
+
+| Thời gian | Action |
+|---|---|
+| 0 phút | Task enters BLOCKED, notification sent to user |
+| 60 phút | Warning notification (HIGH priority) |
+| 120 phút | Auto-escalate to ESCALATED, Mentor review |
+
+### 14.2 Human-in-the-Loop Notifications
+
+Khi task bị BLOCKED, hệ thống tự động gửi notification:
+
+```python
+from services.orchestrator.services.notification_service import (
+    create_blocked_notification,
+    notification_service,
+)
+
+notification = create_blocked_notification(
+    task_id=task.id,
+    project_id=task.project_id,
+    task_title=task.title,
+    reason="Missing dependency: auth module not complete",
+    missing_info=["auth module spec", "API endpoint requirements"],
+)
+await notification_service.send(notification)
+```
+
+Notification channels:
+- **DASHBOARD**: WebSocket real-time
+- **SLACK**: Team channel alert
+- **EMAIL**: Critical notifications
+- **WEBHOOK**: Custom integrations
+
+### 14.3 BLOCKED → ESCALATED Transition
+
+BLOCKED state giờ có 3 exits (was 2):
+- `BLOCKED → PLANNING`: Dependency resolved
+- `BLOCKED → CANCELLED`: User cancels
+- `BLOCKED → ESCALATED`: **NEW** — Timeout auto-escalation (120+ minutes)
+
+### 14.4 Notification Database
+
+Notifications stored in `notifications` table for audit and retry:
+
+```sql
+CREATE TABLE notifications (
+    id UUID PRIMARY KEY,
+    task_id UUID REFERENCES tasks(id),
+    project_id UUID REFERENCES projects(id),
+    notification_type VARCHAR(50),
+    title VARCHAR(500),
+    message TEXT,
+    priority VARCHAR(20),
+    channels JSONB,
+    metadata JSONB,
+    sent BOOLEAN DEFAULT FALSE,
+    sent_at TIMESTAMP,
+    created_at TIMESTAMP DEFAULT NOW()
+);
+```

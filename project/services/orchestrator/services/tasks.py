@@ -8,6 +8,7 @@ from sqlalchemy.orm import selectinload
 from shared.models.task import Task, TaskDependency, TaskOutput
 from shared.schemas.task import TaskCreate, TaskUpdate, StateTransitionRequest
 from shared.config.state_transitions import StateTransitions
+from shared.concurrency import OptimisticLockError
 
 
 async def get_tasks(
@@ -87,11 +88,35 @@ async def delete_task(db: AsyncSession, task_id: UUID) -> bool:
 
 
 async def transition_task_state(
-    db: AsyncSession, task_id: UUID, request: StateTransitionRequest
+    db: AsyncSession, task_id: UUID, request: StateTransitionRequest, expected_version: int | None = None
 ) -> tuple[Task | None, str | None]:
-    task = await get_task(db, task_id)
+    """
+    Transition task state with optimistic locking.
+
+    Args:
+        db: Async database session
+        task_id: Task UUID
+        request: State transition request with target_status and reason
+        expected_version: Expected version for optimistic locking (optional)
+
+    Returns:
+        Tuple of (updated_task, error_message)
+
+    Raises:
+        OptimisticLockError: If version mismatch detected (concurrent update)
+    """
+    result = await db.execute(
+        select(Task).where(Task.id == task_id).with_for_update()
+    )
+    task = result.scalar_one_or_none()
     if not task:
         return None, "Task not found"
+
+    if expected_version is not None and task.version != expected_version:
+        raise OptimisticLockError(
+            f"Task {task_id} was modified by another process "
+            f"(expected version {expected_version}, got {task.version})"
+        )
 
     current_status = task.status.value if hasattr(task.status, "value") else task.status
     target_status = request.target_status.value if hasattr(request.target_status, "value") else request.target_status
@@ -101,6 +126,7 @@ async def transition_task_state(
         return None, error
 
     task.status = request.target_status
+    task.version += 1
 
     now = datetime.now(timezone.utc)
     if target_status == "DONE":

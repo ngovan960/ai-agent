@@ -6,7 +6,7 @@ from shared.models.task import Task, TaskOutput, TaskDependency
 from shared.models.registry import (
     Retry, AuditLog, MentorInstruction, MentorQuota,
     Decision, Workflow, Deployment, CostTracking,
-    LLMCallLog, CircuitBreakerState, EmbeddingConfig,
+    LLMCallLog, CircuitBreakerState, EmbeddingConfig, Notification,
 )
 
 __all__ = [
@@ -30,4 +30,5 @@ __all__ = [
     "LLMCallLog",
     "CircuitBreakerState",
     "EmbeddingConfig",
+    "Notification",
 ]

@@ -330,22 +330,29 @@ Test end-to-end toàn bộ core state system.
 | 1.1 | Setup Project | 🟡 85% | Monorepo, FastAPI, ORM, Alembic, Redis, Docker — thiếu run DB |
 | 1.2 | Project Registry | 🟡 90% | CRUD API hoàn chỉnh — thiếu unit tests |
 | 1.3 | Module Registry | 🟡 85% | CRUD + dependencies — thiếu project/{id}/modules endpoint, tests |
-| 1.4 | Task Registry | 🟡 80% | CRUD + transitions + outputs — thiếu nested endpoints, tests |
-| 1.5 | State Transition Engine | 🟡 85% | Validation + API + tests — thiếu transition hooks |
+| 1.4 | Task Registry | 🟡 85% | CRUD + transitions + outputs + optimistic locking (version column) |
+| 1.5 | State Transition Engine | 🟡 90% | Validation + API + tests + BLOCKED timeout (v4) |
 | 1.6 | Retry Tracking | 🔴 15% | Chỉ có ORM model — service, APIs, tests chưa làm |
 | 1.7 | Audit Logs | 🟡 30% | ORM model + middleware — service, APIs, tests chưa làm |
 | 1.8 | Integration Tests | 🟡 20% | Infrastructure + unit tests — integration tests chưa làm |
-| 1.9 | Dual-Model Validation Gate | ✅ 100% | Schemas, service, APIs, state_transitions v3, router docs — thiếu tests |
+| 1.9 | Dual-Model Validation Gate | ✅ 100% | Schemas, service, APIs, state_transitions v4, router docs — thiếu tests |
+| 1.10 | Concurrency Control | ✅ 100% | Optimistic locking, retry_on_conflict decorator, stuck_task_detector |
+| 1.11 | Context Builder | ✅ 100% | Priority truncation, Lost in the Middle mitigation, overflow protocol |
+| 1.12 | Notification Service | ✅ 100% | BLOCKED notifications, human-in-the-loop, multi-channel |
 
 **Definition of Done cho Phase 1:**
 - [x] Có API quản lý state (projects, modules, tasks)
-- [x] Có workflow transitions hoạt động (dùng state_transitions.py)
+- [x] Có workflow transitions hoạt động (dùng state_transitions.py v4)
 - [x] Có dual-model validation gate (NEW → ANALYZING cross-validation)
+- [x] Có concurrency control (optimistic locking, retry on conflict)
+- [x] Có context builder với priority truncation + Lost in the Middle mitigation
+- [x] Có notification service cho BLOCKED tasks (human-in-the-loop)
 - [ ] Có retry tracking với auto-escalate — CHƯA
 - [ ] Có audit logs (middleware + service) — middleware có, service chưa
 - [ ] Integration tests pass 100% — CHƯA
 - [ ] Coverage > 80% — CHƯA
 
-**Progress: ~65% Phase 1 hoàn thành**
-**Files created: 35+ files**
+**Progress: ~70% Phase 1 hoàn thành**
+**Files created: 40+ files**
 **Tests written: 38 unit tests (chưa chạy được)**
+**Risk mitigations: 3/3 implemented (State Bloat, Context Window, Dependency Blocked)**

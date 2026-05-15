@@ -29,7 +29,7 @@ tasks/
 | Phase | Tên | Thời gian | Số tasks | Trạng thái |
 |---|---|---|---|---|
 | 0 | System Design | 1–2 tuần | 31 | ✅ Complete (v4.1) |
-| 1 | Core State System | 2–3 tuần | 56 | 🟡 Partial (65%) |
+| 1 | Core State System | 2–3 tuần | 56 | 🟡 Partial (70%) |
 | 2 | Workflow Engine | 2–3 tuần | 42 | ⬜ Pending |
 | 3 | Agent Runtime | 2–4 tuần | 55 | ⬜ Pending |
 | 4 | Verification Sandbox (Hybrid) | 2–3 tuần | 35 | ⬜ Pending |
@@ -43,14 +43,17 @@ tasks/
 
 ---
 
-## Hybrid Architecture (v4.1)
+## Hybrid Architecture (v4.2)
 
 ```
 FastAPI Backend (BRAINS)
-├── State Machine Engine (22 valid transitions, v3 gatecheck)
+├── State Machine Engine (22 valid transitions, v4 gatecheck + BLOCKED timeout)
 ├── Workflow Engine
 ├── Dual-Model Validation Gate (v4.1 — cross-validate before NEW → ANALYZING)
 ├── Dynamic Model Router (v4 — auto-select model by scoring)
+├── Context Builder (v4.2 — priority truncation, Lost in the Middle mitigation)
+├── Stuck Task Detector (v4.2 — background job, auto-escalation)
+├── Notification Service (v4.2 — human-in-the-loop for BLOCKED tasks)
 ├── Agent Router & Dispatcher (8 agents: 7 + Validator)
 ├── LLM Gateway (LiteLLM + OpenCode)
 │   ├── Circuit Breaker (per-model)
@@ -139,16 +142,16 @@ Phase 1
 ### ✅ Đã hoàn thành
 | Component | Files | Mô tả |
 |---|---|---|
-| **Config** | settings.py, database.py, cache.py | Settings, async DB engine, Redis cache |
-| **ORM Models** | base.py, user.py, project.py, module.py, task.py, registry.py | 15+ SQLAlchemy models |
+| **Config** | settings.py, database.py, cache.py, concurrency.py | Settings, async DB, Redis cache, optimistic locking |
+| **ORM Models** | base.py, user.py, project.py, module.py, task.py, registry.py | 16+ SQLAlchemy models (thêm Notification, version column) |
 | **Pydantic Schemas** | project.py, module.py, task.py, validation.py | CRUD DTOs, validation gate DTOs |
-| **Services** | projects.py, modules.py, tasks.py, validation.py | CRUD + dual-model validation |
+| **Services** | projects.py, modules.py, tasks.py, validation.py, context_builder.py, stuck_task_detector.py, notification_service.py | CRUD + validation + context builder + stuck detection + notifications |
 | **Routers** | projects.py, modules.py, tasks.py, validation.py | REST API + validation endpoints |
 | **Middleware** | audit.py | HTTP request audit logging |
-| **State Machine** | state_transitions.py v3 | 22 transitions + validation gatecheck |
+| **State Machine** | state_transitions.py v4 | 22 transitions + validation gatecheck + BLOCKED timeout |
 | **Alembic** | alembic.ini, env.py, script.py.mako | Migration framework |
 | **Tests** | 4 test files, 38 tests | Unit tests for schemas, services, state |
-| **Docs** | dynamic-model-router.md v4.1 | Validation routing + decision matrix |
+| **Docs** | dynamic-model-router.md v4.2, error-handling-resilience.md, risk-assessment.md, state-machine.md | Validation routing, context management, risk mitigations |
 
 ### ⬜ Chưa hoàn thành
 | Component | Missing | Priority |
@@ -159,3 +162,5 @@ Phase 1
 | **Integration Tests** | End-to-end workflow tests | HIGH |
 | **DB Migration** | Run alembic upgrade head | HIGH (blocked by pip) |
 | **Validation Tests** | Unit tests for validation service | MEDIUM |
+| **Concurrency Tests** | Tests for optimistic locking, retry decorator | MEDIUM |
+| **Context Builder Tests** | Tests for priority truncation, Lost in the Middle | MEDIUM |

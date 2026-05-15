@@ -2,11 +2,11 @@
 
 ## Metadata
 
-- **Version**: 4.1.0
+- **Version**: 4.2.0
 - **Created**: 2026-05-15
 - **Last Updated**: 2026-05-15
 - **Related**: [ARCHITECTURE.md](../ARCHITECTURE.md), [llm-integration.md](./llm-integration.md), [opencode-architecture.md](./opencode-architecture.md)
-- **Key Change from v4.0**: Added Dual-Model Validation Gate — cross-validation before NEW → ANALYZING transition
+- **Key Change from v4.1**: Added Context Window Management (section 4.6) with "Lost in the Middle" mitigation, priority-based truncation
 
 ---
 
@@ -348,6 +348,86 @@ def validate_transition_with_gatecheck(
             return False, "Requires dual-model validation approval"
     return validate_transition(current_status, new_status)
 ```
+
+---
+
+## 4.6 Context Window Management (v4.1)
+
+### "Lost in the Middle" Phenomenon
+
+Research (Liu et al., 2023) shows that LLMs pay most attention to:
+- **First ~20%** of context window
+- **Last ~20%** of context window
+- **Least attention**: middle ~60%
+
+This means critical information placed in the middle of a large context may be ignored.
+
+### Mitigation Strategy
+
+The `ContextBuilder` service implements a three-zone attention optimization:
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                    CONTEXT WINDOW                            │
+├─────────────────┬───────────────────┬───────────────────────┤
+│   BEGINNING     │      MIDDLE       │        END            │
+│   (P ≥ 80)      │   (P 40-79)       │     (P < 40)          │
+│   HIGH ATTENTION│   MED ATTENTION   │   MED-HIGH ATTENTION  │
+├─────────────────┼───────────────────┼───────────────────────┤
+│ Task Desc (100) │ Memory (50)       │ Laws (30)             │
+│ Output fmt (90) │ Module specs (40) │ Codebase (20)         │
+│ System prompt   │                   │ Audit logs (10)       │
+│ Self-aware (70) │                   │                       │
+│ Validation (60) │                   │                       │
+└─────────────────┴───────────────────┴───────────────────────┘
+```
+
+### Priority Levels
+
+| Priority | Section | Zone | Truncation Order |
+|---|---|---|---|
+| 100 | Task description | Beginning | Last (never truncated) |
+| 90 | Output format | Beginning | Last |
+| 80 | System prompt | Beginning | Last |
+| 70 | Self-awareness | Beginning | Late |
+| 60 | Validation results | Beginning | Late |
+| 50 | Relevant memory | Middle | Medium |
+| 40 | Module specs | Middle | Medium |
+| 30 | Architectural laws | End | Early |
+| 20 | Full codebase | End | Early |
+| 10 | Historical logs | End | First |
+
+### Implementation
+
+```python
+from services.orchestrator.services.context_builder import ContextBuilder
+
+builder = ContextBuilder(max_tokens=128000, safety_margin=4096)
+
+# Critical info — always at beginning
+builder.add_section("Task Description", task_desc, priority=100)
+builder.add_section("Output Format", output_fmt, priority=90)
+builder.add_section("Agent Role", system_prompt, priority=80)
+
+# Medium priority — in middle
+builder.add_section("Relevant Memory", memory, priority=50)
+builder.add_section("Module Specs", specs, priority=40)
+
+# Lower priority — at end
+builder.add_section("Architectural Laws", laws, priority=30)
+
+context = builder.build()
+# Automatically reordered: beginning → middle → end
+# Truncated if exceeds max_tokens
+```
+
+### Context Overflow Protocol
+
+When context still exceeds limit after priority truncation:
+1. Log overflow event with token counts
+2. Escalate task — request user to split into smaller tasks
+3. Force switch to model with larger context (Qwen 3.6 Plus: 1M tokens)
+4. Reduce context — keep only task description + essential info
 
 ---
 

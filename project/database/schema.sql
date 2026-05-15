@@ -146,7 +146,8 @@ CREATE TABLE tasks (
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     completed_at TIMESTAMP WITH TIME ZONE,
     failed_at TIMESTAMP WITH TIME ZONE,
-    cancelled_at TIMESTAMP WITH TIME ZONE
+    cancelled_at TIMESTAMP WITH TIME ZONE,
+    version INT NOT NULL DEFAULT 0
 );
 
 CREATE INDEX idx_tasks_project_id ON tasks(project_id);
@@ -409,6 +410,32 @@ CREATE TABLE circuit_breaker_state (
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
+
+-- ============================================================
+-- NOTIFICATIONS (Human-in-the-loop for BLOCKED tasks)
+-- ============================================================
+
+CREATE TABLE notifications (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    task_id UUID REFERENCES tasks(id) ON DELETE SET NULL,
+    project_id UUID REFERENCES projects(id) ON DELETE SET NULL,
+    notification_type VARCHAR(50) NOT NULL,
+    title VARCHAR(500) NOT NULL,
+    message TEXT NOT NULL,
+    priority VARCHAR(20) NOT NULL DEFAULT 'medium',
+    channels JSONB DEFAULT '["dashboard"]',
+    metadata JSONB DEFAULT '{}',
+    sent BOOLEAN NOT NULL DEFAULT FALSE,
+    sent_at TIMESTAMP WITH TIME ZONE,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+CREATE INDEX idx_notifications_task_id ON notifications(task_id);
+CREATE INDEX idx_notifications_project_id ON notifications(project_id);
+CREATE INDEX idx_notifications_type ON notifications(notification_type);
+CREATE INDEX idx_notifications_priority ON notifications(priority);
+CREATE INDEX idx_notifications_sent ON notifications(sent);
+CREATE INDEX idx_notifications_created_at ON notifications(created_at);
 
 -- ============================================================
 -- UPDATED_AT TRIGGER FUNCTION

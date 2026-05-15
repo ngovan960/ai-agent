@@ -194,3 +194,18 @@ class EmbeddingConfig(Base):
     cost_per_1k_input_tokens = Column(Float, nullable=False, default=0.0)
     cost_per_1k_output_tokens = Column(Float, nullable=False, default=0.0)
     is_active = Column(Boolean, nullable=False, default=True)
+
+
+class Notification(Base):
+    __tablename__ = "notifications"
+
+    task_id = Column(UUID(as_uuid=True), ForeignKey("tasks.id", ondelete="SET NULL"))
+    project_id = Column(UUID(as_uuid=True), ForeignKey("projects.id", ondelete="SET NULL"))
+    notification_type = Column(String(50), nullable=False)
+    title = Column(String(500), nullable=False)
+    message = Column(Text, nullable=False)
+    priority = Column(String(20), nullable=False, default="medium")
+    channels = Column(JSON, default=lambda: ["dashboard"])
+    metadata = Column(JSON, default=lambda: {})
+    sent = Column(Boolean, nullable=False, default=False)
+    sent_at = Column(Base.created_at.type)

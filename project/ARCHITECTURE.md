@@ -384,6 +384,32 @@ Phases 0-4 only — prove the core workflow works end-to-end. See `docs/mvp-scop
 
 ---
 
+## 12.5 Risk Mitigations (v4.1)
+
+### Risk #1: State Bloat & Race Conditions — MITIGATED
+- **Optimistic locking**: `version` column on tasks table + `SELECT FOR UPDATE`
+- **Retry on conflict**: `@retry_on_conflict` decorator with exponential backoff
+- **Stuck task detection**: Background job every 5 minutes
+- **Auto-escalation**: Tasks stuck >60min → ESCALATED, BLOCKED >120min → ESCALATED
+- **Risk score reduced**: 12 → 8 (HIGH)
+
+### Risk #2: Context Window / "Lost in the Middle" — MITIGATED
+- **ContextBuilder**: Priority-based truncation (P100 → P10)
+- **"Lost in the Middle" mitigation**: Critical info at BEGINNING and END
+- **Token counting**: Pre-send validation against model limits
+- **Overflow protocol**: Escalate, model upgrade, context reduction
+- **Risk score reduced**: 6 → 4 (MEDIUM)
+
+### Risk #3: Dependency Blocked — MITIGATED
+- **BLOCKED timeout**: 120 minutes → auto-escalate to ESCALATED
+- **Human-in-the-loop**: Auto-notification via Dashboard, Slack, Email
+- **Warning system**: 60-minute warning before escalation
+- **New transition**: BLOCKED → ESCALATED (was only PLANNING, CANCELLED)
+- **New table**: `notifications` for audit and retry
+- **Risk score**: 9 (HIGH) — new risk, fully mitigated
+
+---
+
 ## 13. Key Changes from v2 to v3
 
 | Change | v2 | v3 |
@@ -414,11 +440,12 @@ Phases 0-4 only — prove the core workflow works end-to-end. See `docs/mvp-scop
 ---
 
 ## 14. Metadata
-- **Version**: 4.1.0
+- **Version**: 4.2.0
 - **Created**: 2026-05-14
 - **Last Updated**: 2026-05-15
-- **Status**: Phase 0 Complete (v4), Phase 1 Partial (60%)
+- **Status**: Phase 0 Complete (v4), Phase 1 Partial (65%)
 - **Phase 0**: FastAPI = brain, OpenCode = integration, Dynamic Model Router (5 models)
-- **Phase 1 Progress**: 30+ files, CRUD APIs (Projects/Modules/Tasks/Validation), ORM models, Alembic, Redis cache, 38 unit tests
+- **Phase 1 Progress**: 35+ files, CRUD APIs (Projects/Modules/Tasks/Validation), ORM models, Alembic, Redis cache, 38 unit tests
 - **Phase 1 Remaining**: Retry service, Audit service/APIs, Integration tests, DB migration run
 - **v4.1 Change**: Added Dual-Model Validation Gate — cross-validation before NEW → ANALYZING
+- **v4.2 Change**: Fixed 3 critical risks — State Bloat (optimistic locking), Context Window (priority truncation), Dependency Blocked (timeout + notifications)

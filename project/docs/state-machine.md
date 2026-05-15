@@ -253,12 +253,33 @@ ESCALATED → DONE (chua verify) ❌ VI PHAM LAW-009
 4. Rollback phai tao audit log entry
 5. Rollback khong ap dung cho terminal states (DONE, FAILED, CANCELLED)
 
-### BLOCKED State Resolution
+### BLOCKED State Resolution (v4.1)
 Khi task bi BLOCKED va dependency duoc giai quyet:
 1. Task quay ve `PLANNING` (khong phai state truoc do)
 2. Ly do: BLOCKED co the lau, context da thay doi, can re-plan
 3. Exception: Neu task chi bi block it thoi gian va context khong doi → cho phep quay ve state truoc do (configurable)
 4. Luu reason khi transition BLOCKED → PLANNING de track context
+
+### BLOCKED Timeout Protocol (NEW v4.1)
+BLOCKED state khong con la "ho den" — co timeout va auto-escalation:
+
+| Thoi gian | Action | Notification |
+|---|---|---|
+| 0 phut | Task enters BLOCKED | Dashboard notification to user |
+| 60 phut | Warning sent | Slack + Dashboard (HIGH priority) |
+| 120 phut | Auto-escalate to ESCALATED | Slack + Email + Dashboard (CRITICAL) |
+
+BLOCKED state gio co 3 exits (was 2):
+- `BLOCKED → PLANNING`: Dependency resolved
+- `BLOCKED → CANCELLED`: User cancels
+- `BLOCKED → ESCALATED`: **NEW** — Timeout auto-escalation (120+ minutes)
+
+Khi auto-escalate:
+1. Task status chuyen tu BLOCKED sang ESCALATED
+2. failure_reason duoc set: "Auto-escalated: task was BLOCKED for 120+ minutes"
+3. Notification gui den Mentor va team
+4. Mentor nhan full context: task spec, BLOCKED reason, time stuck
+5. Mentor quyet dinh: cancel task, create new plan, hoac request user input
 
 ## State Transition API
 
@@ -285,8 +306,10 @@ Error Response (Invalid Transition): {
 
 ## Metadata
 
-- **Version**: 2.0.0
+- **Version**: 4.1.0
 - **Created**: 2026-05-14
+- **Last Updated**: 2026-05-15
+- **Changes v4.1**: Added BLOCKED timeout protocol (120min auto-escalation), BLOCKED → ESCALATED transition, human-in-the-loop notifications
 - **Last Updated**: 2026-05-14
 - **Total States**: 11 (9 original + FAILED + CANCELLED)
 - **Valid Transitions**: 22

@@ -158,30 +158,31 @@ Very Low (1) IGNORE          ACCEPT            MONITOR           MITIGATE
 ### Risk #4: Context Window Overflow
 
 | Attribute | Detail |
-|-----------|--------|
+|---|---|
 | **Category** | Technical |
-| **Probability** | Medium (3) |
+| **Probability** | Low (2) |
 | **Impact** | Medium (2) |
-| **Risk Score** | 6 — **MEDIUM** |
-| **Description** | LLM context window bị vượt khi build context cho complex modules. Task description + module spec + existing code + architectural laws + memory có thể vượt model context limit. |
+| **Risk Score** | 4 — **MEDIUM** (reduced from 6) |
+| **Description** | LLM context window bị vượt khi build context cho complex modules. Task description + module spec + existing code + architectural laws + memory có thể vượt model context limit. "Lost in the Middle" phenomenon: LLM bỏ qua thông tin quan trọng ở giữa context. |
 
 **Impact Analysis:**
 
 - Context bị truncate → mất thông tin quan trọng → output kém
 - Model tự động truncate (không kiểm soát) → hallucination
+- "Lost in the Middle": thông tin quan trọng ở giữa context bị bỏ qua
 - Task không thể process nếu context quá lớn, kể cả sau khi summarize
-- Đặc biệt nghiêm trọng với DeepSeek V4 Flash (64K window, effective limit 4096 tokens)
 
 **Mitigations:**
 
 | # | Mitigation | Priority | Status |
-|---|-----------|----------|--------|
-| 1 | **Context Builder với priority-based truncation**: Task description (P100) > Output format (P90) > System prompt (P80) > Memory (P50) > Modules (P40) > Laws (P30) | P0 | In Design |
-| 2 | **Token counting trước khi gửi**: Count tokens, truncate nếu vượt effective limit | P0 | Planned |
-| 3 | **Smart context selection**: Embedding search chỉ lấy relevant portions, không load toàn bộ | P1 | Phase 6 |
-| 4 | **Model upgrade khi overflow**: Tự động chuyển sang model có context limit lớn hơn | P1 | Planned |
-| 5 | **Task description summarization**: Dùng fast model để summarize task description nếu quá dài | P1 | Planned |
-| 6 | **Context overflow protocol**: Escalate cho user nếu task quá lớn kể cả sau summarize | P2 | Planned |
+|---|---|---|---|
+| 1 | **ContextBuilder với priority-based truncation**: Task description (P100) > Output format (P90) > System prompt (P80) > Memory (P50) > Modules (P40) > Laws (P30) | P0 | ✅ Implemented |
+| 2 | **"Lost in the Middle" mitigation**: Critical info at BEGINNING (P≥80) and END (P<40), less critical in MIDDLE (P40-79) | P0 | ✅ Implemented |
+| 3 | **Token counting trước khi gửi**: Count tokens, truncate nếu vượt effective limit | P0 | ✅ Implemented |
+| 4 | **Smart context selection**: Embedding search chỉ lấy relevant portions, không load toàn bộ | P1 | Phase 6 |
+| 5 | **Model upgrade khi overflow**: Tự động chuyển sang model có context limit lớn hơn | P1 | Planned |
+| 6 | **Task description summarization**: Dùng fast model để summarize task description nếu quá dài | P1 | Planned |
+| 7 | **Context overflow protocol**: Escalate cho user nếu task quá lớn kể cả sau summarize | P2 | Planned |
 
 **Contingency:**
 
@@ -196,12 +197,12 @@ Very Low (1) IGNORE          ACCEPT            MONITOR           MITIGATE
 ### Risk #5: State Machine Edge Cases
 
 | Attribute | Detail |
-|-----------|--------|
+|---|---|
 | **Category** | Technical |
-| **Probability** | Medium (3) |
+| **Probability** | Low (2) |
 | **Impact** | Critical (4) |
-| **Risk Score** | 12 — **CRITICAL** |
-| **Description** | 18 valid transitions và 22 invalid transitions có nhiều edge cases—race conditions, stuck states, unexpected transition sequences. |
+| **Risk Score** | 8 — **HIGH** (reduced from 12) |
+| **Description** | 22 valid transitions và nhiều invalid transitions có nhiều edge cases—race conditions, stuck states, unexpected transition sequences. |
 
 **Impact Analysis:**
 
@@ -221,15 +222,15 @@ Very Low (1) IGNORE          ACCEPT            MONITOR           MITIGATE
 **Mitigations:**
 
 | # | Mitigation | Priority | Status |
-|---|-----------|----------|--------|
-| 1 | **Row-level locking**: `SELECT FOR UPDATE` khi transition task, đảm bảo atomic | P0 | Implemented |
-| 2 | **Comprehensive unit tests**: Test tất cả 18 valid transitions và 22 invalid transitions | P0 | Planned |
-| 3 | **Database constraints**: CHECK constraints cho valid state values, trigger cho valid transitions | P0 | In Design |
-| 4 | **Stuck task detection**: Background job detect tasks stuck >30 phút, auto-alert | P1 | Planned |
-| 5 | **Manual force transition API**: Admin API để manually move stuck tasks | P1 | Planned |
-| 6 | **Audit log integrity**: Hash chain validation, append-only audit logs | P0 | Planned |
-| 7 | **Integration tests cho concurrent transitions**: Verify chỉ 1 transition thành công | P0 | Planned |
-| 8 | **Timeout mechanism**: Tự động ESCALATE tasks stuck >60 phút | P1 | Planned |
+|---|---|---|---|
+| 1 | **Optimistic locking**: `version` column + `SELECT FOR UPDATE` khi transition task, đảm bảo atomic | P0 | ✅ Implemented |
+| 2 | **Retry on conflict**: `@retry_on_conflict` decorator với exponential backoff (0.1s → 0.2s → 0.4s) | P0 | ✅ Implemented |
+| 3 | **Stuck task detection**: Background job detect tasks stuck >30 phút, auto-alert | P0 | ✅ Implemented |
+| 4 | **Auto-escalation**: Tasks stuck >60 phút auto-escalate to ESCALATED | P0 | ✅ Implemented |
+| 5 | **Comprehensive unit tests**: Test tất cả 22 valid transitions và invalid transitions | P0 | Planned |
+| 6 | **Database constraints**: CHECK constraints cho valid state values | P0 | In Design |
+| 7 | **Audit log integrity**: Hash chain validation, append-only audit logs | P0 | Planned |
+| 8 | **Integration tests cho concurrent transitions**: Verify chỉ 1 transition thành công | P0 | Planned |
 
 **Contingency:**
 
@@ -447,6 +448,44 @@ Very Low (1) IGNORE          ACCEPT            MONITOR           MITIGATE
 
 ---
 
+### Risk #11: Dependency Blocked (NEW v4.1)
+
+| Attribute | Detail |
+|---|---|
+| **Category** | Operational |
+| **Probability** | Medium (3) |
+| **Impact** | High (3) |
+| **Risk Score** | 9 — **HIGH** |
+| **Description** | BLOCKED state trở thành "hố đen" — task bị chặn vì dependency chưa xong hoặc thiếu thông tin, nhưng không có cơ chế tự động nhắc nhở user. Nếu dependency không bao giờ resolved, task chết yểu ở BLOCKED state. |
+
+**Impact Analysis:**
+
+- Task stuck ở BLOCKED vô hạn → workflow block
+- User không được thông báo → không biết cần cung cấp thông tin
+- Dependency chain bị block → cascade effect, nhiều tasks bị ảnh hưởng
+- Không có escalation path từ BLOCKED → Mentor
+
+**Mitigations:**
+
+| # | Mitigation | Priority | Status |
+|---|---|---|---|
+| 1 | **BLOCKED timeout mechanism**: Auto-escalate BLOCKED → ESCALATED sau 120 phút | P0 | ✅ Implemented |
+| 2 | **Human-in-the-loop notifications**: Auto-send notification khi task enters BLOCKED | P0 | ✅ Implemented |
+| 3 | **Warning notification**: HIGH priority alert sau 60 phút BLOCKED | P0 | ✅ Implemented |
+| 4 | **Notification channels**: Dashboard (WebSocket), Slack, Email, Webhook | P0 | ✅ Implemented |
+| 5 | **BLOCKED → ESCALATED transition**: New valid transition trong state machine | P0 | ✅ Implemented |
+| 6 | **Notification database**: Store notifications trong `notifications` table cho audit | P0 | ✅ Implemented |
+| 7 | **Auto-escalation with reason**: Mentor nhận full context khi BLOCKED task escalated | P0 | ✅ Implemented |
+
+**Contingency:**
+
+- Nếu BLOCKED task vẫn không resolved sau escalation:
+  1. Mentor reviews và quyết định: cancel task hoặc create new plan
+  2. Nếu user không respond trong 24h → auto-cancel task
+  3. Log pattern để cải thiện dependency detection trong tương lai
+
+---
+
 ## 3. Risk Matrix Summary
 
 ### 3.1 Risk Matrix Visualization
@@ -506,17 +545,18 @@ Legend: ★ = Critical (12-16), ● = High (8-9), ▲ = Medium (4-6), ○ = Low 
 ### 3.2 Risk Priority Ranking
 
 | Rank | Risk | Score | Category | Priority |
-|------|------|-------|----------|----------|
+|---|---|---|---|---|
 | 1 | LLM Quality Inconsistency | 12 | Technical | CRITICAL |
 | 2 | LLM API Outage | 12 | Technical | CRITICAL |
-| 3 | State Machine Edge Cases | 12 | Technical | CRITICAL |
-| 4 | Cost Overrun | 9 | Financial | HIGH |
-| 5 | Agent Coordination Failure | 9 | Operational | HIGH |
+| 3 | Agent Coordination Failure | 9 | Operational | HIGH |
+| 4 | Dependency Blocked (NEW v4.1) | 9 | Operational | HIGH |
+| 5 | State Machine Edge Cases | 8 | Technical | HIGH (reduced from 12) |
 | 6 | Security Vulnerability | 8 | Security | HIGH |
 | 7 | OpenCode Integration Failure | 8 | Operational | HIGH |
-| 8 | Context Window Overflow | 6 | Technical | MEDIUM |
-| 9 | Database Performance | 6 | Technical | MEDIUM |
-| 10 | Dependency Management | 4 | Technical | MEDIUM |
+| 8 | Cost Overrun | 6 | Financial | MEDIUM |
+| 9 | Context Window Overflow | 4 | Technical | MEDIUM (reduced from 6) |
+| 10 | Database Performance | 6 | Technical | MEDIUM |
+| 11 | Dependency Management | 4 | Technical | MEDIUM |
 
 ---
 
