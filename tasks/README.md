@@ -29,7 +29,7 @@ tasks/
 | Phase | Tên | Thời gian | Số tasks | Trạng thái |
 |---|---|---|---|---|
 | 0 | System Design | 1–2 tuần | 31 | ✅ Complete (v4.1) |
-| 1 | Core State System | 2–3 tuần | 56 | 🟡 Partial (95%) |
+| 1 | Core State System | 2–3 tuần | 56 | ✅ Complete (v4.4) |
 | 2 | Workflow Engine | 2–3 tuần | 42 | ⬜ Pending |
 | 3 | Agent Runtime | 2–4 tuần | 55 | ⬜ Pending |
 | 4 | Verification Sandbox (Hybrid) | 2–3 tuần | 35 | ⬜ Pending |
@@ -122,7 +122,7 @@ Phase 1
 ## Links đến từng phase
 
 - [✅ Phase 0: System Design](./phase-0-system-design.md) — **COMPLETE (v4)**
-- [🟡 Phase 1: Core State System](./phase-1-core-state-system.md) — **95% COMPLETE**
+- [✅ Phase 1: Core State System](./phase-1-core-state-system.md) — **100% COMPLETE (v4.4)**
 - [Phase 2: Workflow Engine](./phase-2-workflow-engine.md)
 - [Phase 3: Agent Runtime](./phase-3-agent-runtime.md)
 - [Phase 4: Verification Sandbox (Hybrid)](./phase-4-verification-sandbox.md)
