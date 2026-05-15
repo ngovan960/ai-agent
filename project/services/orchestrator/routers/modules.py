@@ -76,3 +76,25 @@ async def remove_dependency(dep_id: UUID, db: AsyncSession = Depends(get_db)):
     deleted = await module_service.remove_module_dependency(db, dep_id)
     if not deleted:
         raise HTTPException(status_code=404, detail="Dependency not found")
+
+
+@router.get("/{module_id}/tasks")
+async def list_module_tasks(
+    module_id: UUID,
+    db: AsyncSession = Depends(get_db),
+    page: int = Query(1, ge=1),
+    page_size: int = Query(20, ge=1, le=100),
+    status: str | None = None,
+    priority: str | None = None,
+):
+    from shared.schemas.task import TaskListResponse, TaskResponse
+    from services.orchestrator.services import tasks as task_service
+    items, total = await task_service.get_tasks(db, None, module_id, page, page_size, status, priority)
+    total_pages = max(1, (total + page_size - 1) // page_size)
+    return TaskListResponse(
+        items=[TaskResponse.model_validate(t) for t in items],
+        total=total,
+        page=page,
+        page_size=page_size,
+        total_pages=total_pages,
+    )

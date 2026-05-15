@@ -14,6 +14,7 @@ from shared.concurrency import OptimisticLockError
 from services.orchestrator.services import tasks as task_service
 from services.orchestrator.services.agent_dispatcher import AgentDispatcher, AgentDispatchResult
 from shared.models.registry import AuditLog, AuditResult
+from services.orchestrator.services import validation as validation_service
 
 logger = logging.getLogger(__name__)
 
@@ -143,6 +144,7 @@ class WorkflowEngine:
     async def _run_node(self, task, current_state: str) -> NodeResult:
         node_map = {
             "NEW": self._node_gatekeeper,
+            "VALIDATING": self._node_validator,
             "ANALYZING": self._node_orchestrator,
             "PLANNING": self._node_orchestrator,
             "IMPLEMENTING": self._node_specialist,
@@ -163,10 +165,51 @@ class WorkflowEngine:
             )
             if agent_result.error:
                 return NodeResult(node_name="gatekeeper", status="failed", input_state="NEW", output_state=None, agent_result=agent_result, error=agent_result.error)
-            return NodeResult(node_name="gatekeeper", status="completed", input_state="NEW", output_state="ANALYZING", agent_result=agent_result)
+
+            parsed = agent_result.parsed_output or {}
+            risk_level = parsed.get("risk_level", "low")
+            complexity = parsed.get("complexity", "trivial")
+
+            if validation_service.should_skip_validation(risk_level, complexity):
+                return NodeResult(node_name="gatekeeper", status="completed", input_state="NEW", output_state="ANALYZING", agent_result=agent_result)
+            else:
+                return NodeResult(node_name="gatekeeper", status="completed", input_state="NEW", output_state="VALIDATING", agent_result=agent_result)
+
         except Exception as e:
             logger.error(f"Gatekeeper node failed: {e}")
             return NodeResult(node_name="gatekeeper", status="failed", input_state="NEW", output_state=None, agent_result=None, error=str(e))
+
+    async def _node_validator(self, task) -> NodeResult:
+        try:
+            user_request = task.description or task.title
+            gatekeeper_output = {
+                "task_type": "feature",
+                "complexity": task.risk_level.value if hasattr(task.risk_level, "value") and task.risk_level else "medium",
+                "risk_level": task.risk_level.value if hasattr(task.risk_level, "value") and task.risk_level else "medium",
+                "effort": task.priority.value if hasattr(task.priority, "value") and task.priority else "medium",
+            }
+
+            verdict, confidence = validation_service.validate_classification(
+                user_request=user_request,
+                gatekeeper_classification=gatekeeper_output,
+            )
+
+            if verdict == "APPROVED" and confidence >= 0.8:
+                return NodeResult(node_name="validator", status="completed", input_state="VALIDATING", output_state="ANALYZING")
+            elif verdict == "APPROVED" and confidence < 0.8:
+                return NodeResult(node_name="validator", status="completed", input_state="VALIDATING", output_state="NEW",
+                    error=f"Low confidence ({confidence}), requesting re-analysis")
+            elif verdict == "NEEDS_REVIEW":
+                return NodeResult(node_name="validator", status="completed", input_state="VALIDATING", output_state="ESCALATED",
+                    error="Validation needs mentor review")
+            else:
+                return NodeResult(node_name="validator", status="completed", input_state="VALIDATING", output_state="ESCALATED",
+                    error=f"Validation rejected: {verdict}")
+
+        except Exception as e:
+            logger.error(f"Validator node failed: {e}")
+            return NodeResult(node_name="validator", status="failed", input_state="VALIDATING", output_state="ANALYZING",
+                agent_result=None, error=f"Validation bypassed due to error: {e}")
 
     async def _node_orchestrator(self, task) -> NodeResult:
         current_state = task.status.value if hasattr(task.status, "value") else str(task.status)

@@ -1,13 +1,13 @@
 from uuid import UUID
 from datetime import datetime, timezone
 
-from sqlalchemy import select, func
+from sqlalchemy import select, func, and_
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
-from shared.models.task import Task, TaskDependency, TaskOutput
+from shared.models.task import Task, TaskDependency, TaskOutput, TaskStatus
 from shared.schemas.task import TaskCreate, TaskUpdate, StateTransitionRequest
-from shared.config.state_transitions import validate_transition
+from shared.config.state_transitions import validate_transition, is_terminal
 from shared.concurrency import OptimisticLockError
 
 
@@ -133,6 +133,10 @@ async def transition_task_state(
     if not is_valid:
         return None, error
 
+    can_proceed, block_error = await pre_transition_hook(db, task_id, current_status, target_status)
+    if not can_proceed:
+        return None, block_error
+
     task.status = request.target_status
     task.version += 1
 
@@ -150,6 +154,9 @@ async def transition_task_state(
 
     await db.flush()
     await db.refresh(task)
+
+    await post_transition_hook(db, task_id, target_status)
+
     return task, None
 
 
@@ -201,3 +208,78 @@ async def create_task_output(
     await db.flush()
     await db.refresh(output)
     return output
+
+
+async def pre_transition_hook(
+    db: AsyncSession, task_id: UUID, current_status: str, target_status: str
+) -> tuple[bool, str | None]:
+    """Pre-transition hook: check dependencies before allowing state change."""
+    result = await db.execute(
+        select(TaskDependency).where(TaskDependency.task_id == task_id)
+    )
+    deps = result.scalars().all()
+
+    if not deps:
+        return True, None
+
+    blocked_deps = []
+    for dep in deps:
+        dep_result = await db.execute(
+            select(Task.status).where(Task.id == dep.depends_on_task_id)
+        )
+        dep_status = dep_result.scalar_one_or_none()
+        if dep_status and dep_status not in (TaskStatus.DONE,):
+            blocked_deps.append(str(dep.depends_on_task_id))
+
+    if blocked_deps:
+        return False, f"Task blocked by unresolved dependencies: {', '.join(blocked_deps)}"
+
+    return True, None
+
+
+async def post_transition_hook(
+    db: AsyncSession, task_id: UUID, new_status: str
+) -> list[Task]:
+    """Post-transition hook: trigger dependent tasks when this task completes."""
+    triggered = []
+
+    if new_status == "DONE":
+        result = await db.execute(
+            select(TaskDependency).where(
+                TaskDependency.depends_on_task_id == task_id
+            )
+        )
+        waiters = result.scalars().all()
+
+        for waiter in waiters:
+            waiter_task = await get_task(db, waiter.task_id)
+            if not waiter_task:
+                continue
+
+            waiter_status = waiter_task.status.value if hasattr(waiter_task.status, "value") else str(waiter_task.status)
+            if waiter_status != "BLOCKED":
+                continue
+
+            dep_result = await db.execute(
+                select(TaskDependency).where(TaskDependency.task_id == waiter.task_id)
+            )
+            all_deps = dep_result.scalars().all()
+
+            all_done = True
+            for d in all_deps:
+                d_result = await db.execute(
+                    select(Task.status).where(Task.id == d.depends_on_task_id)
+                )
+                d_status = d_result.scalar_one_or_none()
+                if d_status and d_status not in (TaskStatus.DONE,):
+                    all_done = False
+                    break
+
+            if all_done:
+                await transition_task_state(
+                    db, waiter.task_id,
+                    StateTransitionRequest(target_status="PLANNING", reason="All dependencies resolved"),
+                )
+                triggered.append(waiter_task)
+
+    return triggered

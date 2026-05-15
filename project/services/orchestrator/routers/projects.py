@@ -60,3 +60,45 @@ async def delete_project(project_id: UUID, db: AsyncSession = Depends(get_db)):
     deleted = await project_service.delete_project(db, project_id)
     if not deleted:
         raise HTTPException(status_code=404, detail="Project not found")
+
+
+@router.get("/{project_id}/modules")
+async def list_project_modules(
+    project_id: UUID,
+    db: AsyncSession = Depends(get_db),
+    page: int = Query(1, ge=1),
+    page_size: int = Query(20, ge=1, le=100),
+    status: str | None = None,
+):
+    from shared.schemas.module import ModuleListResponse, ModuleResponse
+    from services.orchestrator.services import modules as module_service
+    items, total = await module_service.get_modules(db, project_id, page, page_size, status)
+    total_pages = max(1, (total + page_size - 1) // page_size)
+    return ModuleListResponse(
+        items=[ModuleResponse.model_validate(m) for m in items],
+        total=total,
+        page=page,
+        page_size=page_size,
+        total_pages=total_pages,
+    )
+
+
+@router.get("/{project_id}/tasks")
+async def list_project_tasks(
+    project_id: UUID,
+    db: AsyncSession = Depends(get_db),
+    page: int = Query(1, ge=1),
+    page_size: int = Query(20, ge=1, le=100),
+    status: str | None = None,
+    priority: str | None = None,
+):
+    from shared.schemas.task import TaskListResponse, TaskResponse
+    items, total = await task_service.get_tasks(db, project_id, None, page, page_size, status, priority)
+    total_pages = max(1, (total + page_size - 1) // page_size)
+    return TaskListResponse(
+        items=[TaskResponse.model_validate(t) for t in items],
+        total=total,
+        page=page,
+        page_size=page_size,
+        total_pages=total_pages,
+    )

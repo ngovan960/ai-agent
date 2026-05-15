@@ -17,6 +17,11 @@ class InstructionType(str, enum.Enum):
     WARNING = "warning"
     DECISION = "decision"
     PATTERN = "pattern"
+    REWRITE = "rewrite"
+    REDESIGN = "redesign"
+    OVERRIDE = "override"
+    REJECT = "reject"
+    APPROVE = "approve"
 
 
 class LLMCallStatus(str, enum.Enum):

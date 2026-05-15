@@ -89,6 +89,7 @@ class TestGetValidTransitions:
         transitions = get_valid_transitions("NEW")
         assert "ANALYZING" in transitions
         assert "BLOCKED" in transitions
+        assert "VALIDATING" in transitions
 
     def test_done_no_valid_transitions(self):
         transitions = get_valid_transitions("DONE")
@@ -100,3 +101,39 @@ class TestGetValidTransitions:
         assert "IMPLEMENTING" in transitions
         assert "ESCALATED" in transitions
         assert "CANCELLED" in transitions
+
+    def test_validating_valid_transitions(self):
+        transitions = get_valid_transitions("VALIDATING")
+        assert "ANALYZING" in transitions
+        assert "NEW" in transitions
+        assert "ESCALATED" in transitions
+        assert "BLOCKED" in transitions
+
+
+class TestValidatingState:
+    def test_new_to_validating(self):
+        is_valid, reason = validate_transition("NEW", "VALIDATING")
+        assert is_valid is True
+
+    def test_validating_to_analyzing(self):
+        is_valid, _ = validate_transition("VALIDATING", "ANALYZING")
+        assert is_valid is True
+
+    def test_validating_to_escalated(self):
+        is_valid, _ = validate_transition("VALIDATING", "ESCALATED")
+        assert is_valid is True
+
+    def test_validating_to_new(self):
+        is_valid, _ = validate_transition("VALIDATING", "NEW")
+        assert is_valid is True
+
+    def test_validating_to_blocked(self):
+        is_valid, _ = validate_transition("VALIDATING", "BLOCKED")
+        assert is_valid is True
+
+    def test_validating_to_done_invalid(self):
+        is_valid, _ = validate_transition("VALIDATING", "DONE")
+        assert is_valid is False
+
+    def test_validating_is_not_terminal(self):
+        assert is_terminal("VALIDATING") is False

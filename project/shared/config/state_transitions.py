@@ -6,7 +6,8 @@ Version 4.0.0 — Added BLOCKED timeout escalation, optimistic locking support.
 """
 
 VALID_TRANSITIONS = {
-    "NEW": ["ANALYZING", "BLOCKED"],
+    "NEW": ["ANALYZING", "BLOCKED", "VALIDATING"],
+    "VALIDATING": ["ANALYZING", "NEW", "ESCALATED", "BLOCKED"],
     "ANALYZING": ["PLANNING", "BLOCKED", "CANCELLED"],
     "PLANNING": ["IMPLEMENTING", "BLOCKED", "CANCELLED"],
     "IMPLEMENTING": ["VERIFYING", "BLOCKED", "FAILED"],
@@ -22,8 +23,13 @@ VALID_TRANSITIONS = {
 TERMINAL_STATES = {"DONE", "FAILED", "CANCELLED"}
 
 TRANSITION_CONDITIONS = {
-    ("NEW", "ANALYZING"): "Gatekeeper da phan loai task + Validator da approve classification",
+    ("NEW", "ANALYZING"): "Gatekeeper da phan loai task (skip validation cho LOW+TRIVIAL)",
+    ("NEW", "VALIDATING"): "Gatekeeper phan loai xong, can Validator cross-validate",
     ("NEW", "BLOCKED"): "Thieu thong tin de phan tich",
+    ("VALIDATING", "ANALYZING"): "Validator APPROVED avec confidence >= 0.8",
+    ("VALIDATING", "NEW"): "Validator APPROVED nhung confidence < 0.8, can re-analyze",
+    ("VALIDATING", "ESCALATED"): "Validator REJECTED hoac NEEDS_REVIEW",
+    ("VALIDATING", "BLOCKED"): "Validation loi, khong the tiep tuc",
     ("ANALYZING", "PLANNING"): "Orchestrator da chia task",
     ("ANALYZING", "BLOCKED"): "Khong the phan tich do thieu thong tin",
     ("ANALYZING", "CANCELLED"): "User huy task",

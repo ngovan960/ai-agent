@@ -9,6 +9,7 @@ import enum
 
 class TaskStatus(str, enum.Enum):
     NEW = "NEW"
+    VALIDATING = "VALIDATING"
     ANALYZING = "ANALYZING"
     PLANNING = "PLANNING"
     IMPLEMENTING = "IMPLEMENTING"

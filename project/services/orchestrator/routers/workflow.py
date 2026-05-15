@@ -8,6 +8,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from shared.database import get_db
 from services.orchestrator.services.workflow_engine import WorkflowEngine, WorkflowStatus
 from services.orchestrator.services import tasks as task_service
+from services.orchestrator.services import escalation_service
+from services.orchestrator.services import mentor_service
 
 router = APIRouter(prefix="/api/v1")
 
@@ -132,6 +134,84 @@ async def retry_execution(
     background_tasks.add_task(_run_workflow_task, execution_id, UUID(task_id))
 
     return {"status": "retrying", "execution_id": execution_id}
+
+
+@router.post("/tasks/{task_id}/escalate")
+async def escalate_task_endpoint(
+    task_id: UUID,
+    reason: str,
+    context: dict | None = None,
+    db: AsyncSession = Depends(get_db),
+):
+    """Escalate a task and add it to the priority queue."""
+    success, message = await escalation_service.escalate_task(db, task_id, reason, context)
+    if not success:
+        raise HTTPException(status_code=400, detail=message)
+    return {"task_id": str(task_id), "status": "escalated", "message": message}
+
+
+@router.get("/escalations/queue")
+async def get_escalation_queue():
+    """Get the escalation priority queue."""
+    queue = escalation_service.get_escalation_queue()
+    items = queue.get_all()
+    return {
+        "queue_size": len(items),
+        "items": [
+            {
+                "task_id": str(i.task_id),
+                "title": i.task_title,
+                "risk_level": i.risk_level,
+                "retries": i.retries,
+                "reason": i.reason,
+            }
+            for i in items
+        ],
+    }
+
+
+@router.get("/escalations/stats")
+async def get_escalation_stats(db: AsyncSession = Depends(get_db)):
+    """Get escalation statistics."""
+    return await escalation_service.get_escalation_stats(db)
+
+
+@router.post("/tasks/{task_id}/takeover")
+async def mentor_takeover_endpoint(
+    task_id: UUID,
+    mentor_id: str,
+    action: str,
+    reason: str,
+    new_instructions: str | None = None,
+    db: AsyncSession = Depends(get_db),
+):
+    """Mentor takeover an escalated task."""
+    from services.orchestrator.services.mentor_service import MentorAction
+
+    try:
+        mentor_action = MentorAction(action)
+    except ValueError:
+        raise HTTPException(status_code=400, detail=f"Invalid action: {action}. Must be one of: rewrite, redesign, override, reject, approve")
+
+    can_call, remaining, limit = await mentor_service.check_mentor_quota(db)
+    if not can_call:
+        raise HTTPException(status_code=429, detail=f"Mentor quota exceeded ({limit} calls/day)")
+
+    success, message, result = await mentor_service.mentor_takeover(
+        db, task_id, mentor_id, mentor_action, reason, new_instructions,
+    )
+    if not success:
+        raise HTTPException(status_code=400, detail=message)
+
+    await mentor_service.record_mentor_call(db)
+    return {"task_id": str(task_id), "status": "taken_over", "message": message, "result": result}
+
+
+@router.get("/tasks/{task_id}/mentor-instructions")
+async def get_mentor_instructions(task_id: UUID, db: AsyncSession = Depends(get_db)):
+    """Get all mentor instructions for a task."""
+    instructions = await mentor_service.get_mentor_instructions(db, task_id)
+    return {"task_id": str(task_id), "instructions": instructions, "total": len(instructions)}
 
 
 async def _run_workflow_task(execution_id: str, task_id: UUID):
