@@ -236,7 +236,7 @@ CREATE TABLE mentor_instructions (
     content TEXT NOT NULL,
     context JSONB DEFAULT '{}',
     applied BOOLEAN NOT NULL DEFAULT FALSE,
-    embedding vector(1536),
+    embedding vector,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
@@ -252,12 +252,13 @@ CREATE INDEX idx_mentor_instructions_embedding ON mentor_instructions USING ivff
 
 CREATE TABLE mentor_quota (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     date DATE NOT NULL,
     calls_used INT NOT NULL DEFAULT 0,
     calls_limit INT NOT NULL DEFAULT 10,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    UNIQUE(date)
+    UNIQUE(user_id, date)
 );
 
 -- ============================================================

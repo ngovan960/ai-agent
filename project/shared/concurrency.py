@@ -1,6 +1,7 @@
+import asyncio
 import functools
 import logging
-import time
+import random
 from typing import Any, Callable, TypeVar
 
 logger = logging.getLogger(__name__)
@@ -39,12 +40,13 @@ def retry_on_conflict(
                 except OptimisticLockError as e:
                     last_exception = e
                     delay = min(base_delay * (2**attempt), max_delay)
+                    delay *= random.uniform(0.5, 1.5)
                     logger.warning(
                         f"Optimistic lock conflict on {func.__name__} "
                         f"(attempt {attempt + 1}/{max_retries}), "
                         f"retrying in {delay:.2f}s"
                     )
-                    time.sleep(delay)
+                    await asyncio.sleep(delay)
             raise last_exception  # type: ignore[misc]
 
         return wrapper

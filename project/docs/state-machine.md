@@ -312,6 +312,6 @@ Error Response (Invalid Transition): {
 - **Changes v4.1**: Added BLOCKED timeout protocol (120min auto-escalation), BLOCKED → ESCALATED transition, human-in-the-loop notifications
 - **Last Updated**: 2026-05-14
 - **Total States**: 11 (9 original + FAILED + CANCELLED)
-- **Valid Transitions**: 22
+- **Valid Transitions**: 23
 - **Invalid Transitions**: 22
 - **Terminal States**: 3 (DONE, FAILED, CANCELLED)

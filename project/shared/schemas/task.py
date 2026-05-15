@@ -25,7 +25,6 @@ class TaskUpdate(BaseModel):
     description: str | None = None
     owner: str | None = None
     priority: TaskPriority | None = None
-    status: TaskStatus | None = None
     confidence: float | None = Field(None, ge=0, le=1)
     expected_output: str | None = None
     risk_score: float | None = Field(None, ge=0, le=10)

@@ -1,5 +1,5 @@
 from shared.models.base import Base, UUID
-from sqlalchemy import Column, String, Text, Enum, ForeignKey, Float, Integer, Boolean, Date
+from sqlalchemy import Column, String, Text, Enum, ForeignKey, Float, Integer, Boolean, Date, UniqueConstraint
 from sqlalchemy.dialects.postgresql import JSON
 from sqlalchemy.orm import relationship
 import enum
@@ -71,9 +71,14 @@ class MentorInstruction(Base):
 class MentorQuota(Base):
     __tablename__ = "mentor_quota"
 
-    date = Column(Date, nullable=False, unique=True)
+    user_id = Column(UUID(), ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    date = Column(Date, nullable=False)
     calls_used = Column(Integer, nullable=False, default=0)
     calls_limit = Column(Integer, nullable=False, default=10)
+
+    __table_args__ = (
+        UniqueConstraint("user_id", "date", name="uq_mentor_quota_user_date"),
+    )
 
 
 class Decision(Base):

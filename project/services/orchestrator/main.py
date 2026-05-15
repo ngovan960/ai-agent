@@ -8,6 +8,7 @@ from shared.config.settings import get_settings
 from shared.database import engine, init_db
 from shared.cache import close_redis
 from services.orchestrator.middleware.audit import AuditMiddleware
+from services.orchestrator.middleware.auth import AuthMiddleware
 from services.orchestrator.routers import projects, modules, tasks, validation, retry_audit
 
 settings = get_settings()
@@ -17,6 +18,12 @@ logging.basicConfig(
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
 )
 logger = logging.getLogger(__name__)
+
+ALLOWED_ORIGINS = [
+    origin.strip()
+    for origin in settings.CORS_ALLOWED_ORIGINS.split(",")
+    if origin.strip()
+] if settings.CORS_ALLOWED_ORIGINS else ["*"]
 
 
 @asynccontextmanager
@@ -38,12 +45,13 @@ app = FastAPI(
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
+    allow_origins=ALLOWED_ORIGINS,
+    allow_credentials=ALLOWED_ORIGINS != ["*"],
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
+app.add_middleware(AuthMiddleware)
 app.add_middleware(AuditMiddleware)
 
 app.include_router(projects.router, prefix="/api/v1/projects", tags=["projects"])

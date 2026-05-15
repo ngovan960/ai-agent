@@ -64,6 +64,13 @@ async def create_task(db: AsyncSession, data: TaskCreate) -> Task:
     return task
 
 
+UPDATABLE_TASK_FIELDS = {
+    "title", "description", "owner", "priority", "confidence",
+    "expected_output", "risk_score", "risk_level",
+    "cancellation_reason", "failure_reason",
+}
+
+
 async def update_task(db: AsyncSession, task_id: UUID, data: TaskUpdate) -> Task | None:
     task = await get_task(db, task_id)
     if not task:
@@ -71,7 +78,8 @@ async def update_task(db: AsyncSession, task_id: UUID, data: TaskUpdate) -> Task
 
     update_data = data.model_dump(exclude_unset=True)
     for key, value in update_data.items():
-        setattr(task, key, value)
+        if key in UPDATABLE_TASK_FIELDS:
+            setattr(task, key, value)
 
     await db.flush()
     await db.refresh(task)

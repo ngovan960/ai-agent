@@ -440,15 +440,14 @@ Phases 0-4 only — prove the core workflow works end-to-end. See `docs/mvp-scop
 ---
 
 ## 14. Metadata
-- **Version**: 4.5.0
+- **Version**: 4.6.0
 - **Created**: 2026-05-14
 - **Last Updated**: 2026-05-15
-- **Status**: Phase 0 Complete (v4), Phase 1 Complete (v4.4) ✅
-- **Phase 0**: FastAPI = brain, OpenCode = integration, Dynamic Model Router (5 models)
-- **Phase 1 Progress**: 48+ files, 115 tests pass (79% coverage), CRUD APIs (Projects/Modules/Tasks/Validation/Retry/Audit), ORM models, Alembic, Redis cache
-- **Phase 1 Remaining**: None — Phase 1 complete!
-- **v4.1 Change**: Added Dual-Model Validation Gate — cross-validation before NEW → ANALYZING
-- **v4.2 Change**: Fixed 3 critical risks — State Bloat (optimistic locking), Context Window (priority truncation), Dependency Blocked (timeout + notifications)
-- **v4.3 Change**: Added Retry Tracking Service + Audit Service with CSV export
-- **v4.4 Change**: Added 25+ integration tests — E2E workflow: Projects → Modules → Tasks → Transitions → Validation → Retry/Audit
-- **v4.5 Change**: All 115 tests pass, 79% coverage, cross-platform UUID support, Phase 1 complete
+- **Status**: Phase 0 ✅ | Phase 1 ✅ | Post-Phase 1 Bug Fixes ✅
+- **Phase 1**: 115 tests pass (79% coverage), 48+ files, CRUD APIs, Validation Gate, Risk Mitigations
+- **v4.5 Change**: Phase 1 complete, 115 tests pass, cross-platform UUID
+- **v4.6 Change**: Fixed 20 bugs/security issues from comprehensive review:
+  - CRITICAL (3): ESCALATED→DONE transition, mentor_quota user_id, CORS security
+  - HIGH (6): async event loop blocking, UUID generation, state machine bypass, race conditions, circuit breaker persistence, embedding dimension
+  - MEDIUM (7): LLM-powered validation gate, prompt injection, auth middleware, audit log improvement, context builder reordering, fallback chain sync, cost unit docs
+  - LOW (4): backoff jitter, whitelist field updates, locking strategy, input validation

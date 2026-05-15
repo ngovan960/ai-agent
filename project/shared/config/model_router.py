@@ -14,6 +14,11 @@ Created: 2026-05-15
 from dataclasses import dataclass, field
 from enum import Enum
 from typing import Optional
+import logging
+
+from sqlalchemy import select
+
+logger = logging.getLogger(__name__)
 
 
 class TaskType(str, Enum):
@@ -120,10 +125,47 @@ class ModelRouter:
     def __init__(self, models: list[Model]):
         self.models = models
         self._circuit_breaker_state: dict[str, str] = {}
+        self._db_session = None
+
+    async def init_circuit_breaker_from_db(self, db) -> None:
+        """Load circuit breaker state from database on startup."""
+        try:
+            from shared.models.registry import CircuitBreakerState
+            result = await db.execute(select(CircuitBreakerState))
+            states = result.scalars().all()
+            self._db_session = db
+            for state in states:
+                self._circuit_breaker_state[state.model] = state.state
+            logger.info(f"Loaded {len(states)} circuit breaker states from DB")
+        except Exception as e:
+            logger.warning(f"Could not load circuit breaker states from DB: {e}")
 
     def set_circuit_breaker_state(self, model_name: str, state: str):
         """Set circuit breaker state for a model: closed, open, half_open."""
         self._circuit_breaker_state[model_name] = state
+
+    async def persist_circuit_breaker_state(self, model_name: str, state: str) -> None:
+        """Persist circuit breaker state change to database."""
+        if not self._db_session:
+            return
+        try:
+            from shared.models.registry import CircuitBreakerState
+            from shared.schemas.circuit_breaker import CircuitBreakerStateUpdate
+            result = await self._db_session.execute(
+                select(CircuitBreakerState).where(
+                    CircuitBreakerState.model == model_name
+                )
+            )
+            cb_state = result.scalars().first()
+            if cb_state:
+                cb_state.state = state
+                cb_state.failure_count = 0 if state == "closed" else cb_state.failure_count
+            else:
+                cb_state = CircuitBreakerState(model=model_name, state=state)
+                self._db_session.add(cb_state)
+            await self._db_session.flush()
+        except Exception as e:
+            logger.warning(f"Could not persist circuit breaker state for {model_name}: {e}")
 
     def get_circuit_breaker_state(self, model_name: str) -> str:
         """Get circuit breaker state for a model."""
@@ -131,7 +173,11 @@ class ModelRouter:
 
     def select(self, task: TaskProfile) -> ModelSelection:
         """Select best model for a task using scoring algorithm."""
-        # Filter out models with open circuit breaker
+        if task.complexity < 1 or task.complexity > 10:
+            raise ValueError(f"Complexity must be 1-10, got {task.complexity}")
+        if task.budget_usd <= 0:
+            raise ValueError(f"Budget must be positive, got {task.budget_usd}")
+
         candidates = [
             m for m in self.models
             if self.get_circuit_breaker_state(m.name) != "open"
@@ -264,9 +310,15 @@ class ModelRouter:
         return int(base * (0.5 + task.complexity * 0.1))
 
     def _estimate_cost(self, model: Model, task: TaskProfile) -> float:
-        """Estimate cost in USD for a task."""
+        """Estimate cost in USD for a task.
+
+        NOTE: model.cost_per_1k_input and cost_per_1k_output are per 1,000 tokens.
+        Actual API prices are typically quoted per 1M tokens. To convert:
+            per_1k = per_1M / 1000
+        Example: $0.10/1M input = $0.0001/1K input
+        """
         total_tokens = self._estimate_tokens(task)
-        input_ratio = 0.7  # 70% input, 30% output
+        input_ratio = 0.7
         input_tokens = total_tokens * input_ratio
         output_tokens = total_tokens * (1 - input_ratio)
 

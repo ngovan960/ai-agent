@@ -12,7 +12,7 @@ VALID_TRANSITIONS = {
     "IMPLEMENTING": ["VERIFYING", "BLOCKED", "FAILED"],
     "VERIFYING": ["REVIEWING", "IMPLEMENTING", "FAILED"],
     "REVIEWING": ["DONE", "IMPLEMENTING", "ESCALATED", "CANCELLED"],
-    "ESCALATED": ["PLANNING", "FAILED"],
+    "ESCALATED": ["PLANNING", "FAILED", "DONE"],
     "BLOCKED": ["PLANNING", "CANCELLED", "ESCALATED"],
     "DONE": [],
     "FAILED": [],
@@ -42,6 +42,7 @@ TRANSITION_CONDITIONS = {
     ("REVIEWING", "CANCELLED"): "User huy task",
     ("ESCALATED", "PLANNING"): "Mentor takeover, tao plan moi",
     ("ESCALATED", "FAILED"): "Mentor reject task",
+    ("ESCALATED", "DONE"): "Task co verified output (LAW-009 exception) — Mentor approved bypass",
     ("BLOCKED", "PLANNING"): "Dependency da hoan thanh",
     ("BLOCKED", "CANCELLED"): "User huy task",
     ("BLOCKED", "ESCALATED"): "BLOCKED timeout (120+ minutes) — auto-escalate to Mentor",
@@ -60,7 +61,6 @@ INVALID_TRANSITIONS = [
     ("ESCALATED", "IMPLEMENTING", "Phai qua Mentor takeover (PLANNING)"),
     ("ESCALATED", "VERIFYING", "Phai qua IMPLEMENTING truoc"),
     ("ESCALATED", "REVIEWING", "Phai qua IMPLEMENTING → VERIFYING truoc"),
-    ("ESCALATED", "DONE", "Chi phep khi task da co verified output (LAW-009)"),
     ("BLOCKED", "IMPLEMENTING", "Phai qua PLANNING truoc"),
     ("BLOCKED", "VERIFYING", "Phai qua PLANNING va IMPLEMENTING truoc"),
     ("BLOCKED", "REVIEWING", "Phai qua PLANNING, IMPLEMENTING, VERIFYING truoc"),
@@ -104,6 +104,9 @@ def validate_transition(current_status: str, new_status: str, has_verified_outpu
             if from_status == "ANY" and to_status == new_status:
                 return False, reason
         return False, f"Invalid transition: {current_status} -> {new_status}"
+
+    if current_status == "ESCALATED" and new_status == "DONE" and not has_verified_output:
+        return False, "ESCALATED -> DONE requires verified output (LAW-009). Task must have passed verification before escalation."
 
     condition = TRANSITION_CONDITIONS.get(
         (current_status, new_status), "No condition defined"

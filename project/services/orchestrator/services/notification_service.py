@@ -1,4 +1,5 @@
 import logging
+import uuid
 from datetime import datetime, timezone
 from enum import Enum
 from typing import Any
@@ -45,7 +46,7 @@ class Notification:
         project_id: UUID | None = None,
         metadata: dict[str, Any] | None = None,
     ):
-        self.id = UUID.__hash__(self)
+        self.id = uuid.uuid4()
         self.type = notification_type
         self.title = title
         self.message = message

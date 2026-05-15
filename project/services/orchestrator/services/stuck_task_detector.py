@@ -7,6 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from shared.models.task import Task, TaskStatus
 from shared.schemas.task import StateTransitionRequest
+from shared.concurrency import OptimisticLockError
 
 logger = logging.getLogger(__name__)
 
@@ -62,7 +63,9 @@ async def auto_resolve_blocked_tasks(db: AsyncSession) -> list[dict[str, Any]]:
     cutoff = now - timedelta(minutes=BLOCKED_TIMEOUT_MINUTES)
 
     result = await db.execute(
-        select(Task).where(
+        select(Task)
+        .with_for_update()
+        .where(
             Task.status == TaskStatus.BLOCKED,
             Task.updated_at < cutoff,
         )
@@ -71,27 +74,31 @@ async def auto_resolve_blocked_tasks(db: AsyncSession) -> list[dict[str, Any]]:
 
     resolved = []
     for task in expired_blocked_tasks:
-        task.status = TaskStatus.ESCALATED
-        task.version += 1
-        task.failure_reason = (
-            f"Auto-escalated: task was BLOCKED for {BLOCKED_TIMEOUT_MINUTES}+ minutes "
-            f"without resolution. Requires Mentor review."
-        )
-        await db.flush()
-        await db.refresh(task)
+        try:
+            task.status = TaskStatus.ESCALATED
+            task.version += 1
+            task.failure_reason = (
+                f"Auto-escalated: task was BLOCKED for {BLOCKED_TIMEOUT_MINUTES}+ minutes "
+                f"without resolution. Requires Mentor review."
+            )
+            await db.flush()
+            await db.refresh(task)
 
-        resolved.append({
-            "task_id": task.id,
-            "title": task.title,
-            "previous_status": "BLOCKED",
-            "new_status": "ESCALATED",
-            "reason": task.failure_reason,
-        })
+            resolved.append({
+                "task_id": task.id,
+                "title": task.title,
+                "previous_status": "BLOCKED",
+                "new_status": "ESCALATED",
+                "reason": task.failure_reason,
+            })
 
-        logger.info(
-            f"Auto-escalated BLOCKED task {task.id} ({task.title}) "
-            f"after {BLOCKED_TIMEOUT_MINUTES}+ minutes"
-        )
+            logger.info(
+                f"Auto-escalated BLOCKED task {task.id} ({task.title}) "
+                f"after {BLOCKED_TIMEOUT_MINUTES}+ minutes"
+            )
+        except Exception as e:
+            logger.warning(f"Failed to auto-escalate BLOCKED task {task.id}: {e}")
+            continue
 
     return resolved
 
@@ -106,7 +113,9 @@ async def auto_escalate_stuck_tasks(db: AsyncSession) -> list[dict[str, Any]]:
     terminal_statuses = [TaskStatus.DONE, TaskStatus.FAILED, TaskStatus.CANCELLED, TaskStatus.ESCALATED]
 
     result = await db.execute(
-        select(Task).where(
+        select(Task)
+        .with_for_update()
+        .where(
             Task.status.not_in(terminal_statuses),
             Task.updated_at < cutoff,
         )
@@ -115,22 +124,27 @@ async def auto_escalate_stuck_tasks(db: AsyncSession) -> list[dict[str, Any]]:
 
     escalated = []
     for task in stuck_tasks:
-        old_status = task.status.value if hasattr(task.status, "value") else task.status
-        task.status = TaskStatus.ESCALATED
-        task.version += 1
-        task.failure_reason = (
-            f"Auto-escalated: task stuck in {old_status} for {ESCALATION_TIMEOUT_MINUTES}+ minutes"
-        )
-        await db.flush()
-        await db.refresh(task)
+        try:
+            old_status = task.status.value if hasattr(task.status, "value") else task.status
+            task.status = TaskStatus.ESCALATED
+            task.version += 1
+            task.failure_reason = (
+                f"Auto-escalated: task stuck in {old_status} for {ESCALATION_TIMEOUT_MINUTES}+ minutes"
+            )
+            await db.flush()
+            await db.refresh(task)
 
-        escalated.append({
-            "task_id": task.id,
-            "title": task.title,
-            "previous_status": old_status,
-            "new_status": "ESCALATED",
-            "reason": task.failure_reason,
-        })
+            escalated.append({
+                "task_id": task.id,
+                "title": task.title,
+                "previous_status": old_status,
+                "new_status": "ESCALATED",
+                "reason": task.failure_reason,
+            })
+
+        except Exception as e:
+            logger.warning(f"Failed to auto-escalate stuck task {task.id}: {e}")
+            continue
 
         logger.info(
             f"Auto-escalated stuck task {task.id} ({task.title}) "

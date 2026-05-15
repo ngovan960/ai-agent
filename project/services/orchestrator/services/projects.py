@@ -43,6 +43,11 @@ async def create_project(db: AsyncSession, data: ProjectCreate) -> Project:
     return project
 
 
+UPDATABLE_PROJECT_FIELDS = {
+    "name", "description", "status", "tech_stack", "architecture", "rules",
+}
+
+
 async def update_project(db: AsyncSession, project_id: UUID, data: ProjectUpdate) -> Project | None:
     project = await get_project(db, project_id)
     if not project:
@@ -50,7 +55,8 @@ async def update_project(db: AsyncSession, project_id: UUID, data: ProjectUpdate
 
     update_data = data.model_dump(exclude_unset=True)
     for key, value in update_data.items():
-        setattr(project, key, value)
+        if key in UPDATABLE_PROJECT_FIELDS:
+            setattr(project, key, value)
 
     await db.flush()
     await db.refresh(project)

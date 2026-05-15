@@ -288,12 +288,7 @@ uvicorn services.orchestrator.main:app --reload
 
 ---
 
-**Version**: 4.5.0
+**Version**: 4.6.0
 **Created**: 2026-05-14
-**Status**: Phase 0 Complete (v4), Phase 1 Complete (v4.4) ✅ — 115 tests pass, 79% coverage
-**Phase 1 Progress**: 48+ files created, 115 tests (all passing), CRUD APIs for Projects/Modules/Tasks/Validation/Retry/Audit
-**v4.1 Change**: Added Dual-Model Validation Gate — cross-validation before NEW → ANALYZING transition
-**v4.2 Change**: Fixed 3 critical risks — State Bloat (optimistic locking), Context Window (priority truncation + Lost in the Middle), Dependency Blocked (timeout + notifications)
-**v4.3 Change**: Added Retry Tracking Service (max retries, can_retry, stats) + Audit Service (query logs, CSV export)
-**v4.4 Change**: Added 25+ integration tests — E2E workflow: Projects → Modules → Tasks → Transitions → Validation → Retry/Audit
-**v4.5 Change**: All 115 tests pass, 79% coverage, cross-platform UUID support, Phase 1 complete
+**Status**: Phase 0 ✅ | Phase 1 ✅ | Post-Phase 1 Bug Fixes ✅ — 115 tests pass, 79% coverage
+**v4.6 Change**: Fixed 20 bugs/security issues — ESCALATED→DONE, mentor_quota, CORS, async blocking, auth middleware, validation gate LLM, prompt injection, race conditions, circuit breaker persistence

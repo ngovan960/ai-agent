@@ -10,6 +10,12 @@ class Settings(BaseSettings):
     APP_NAME: str = "AI SDLC Orchestrator"
     APP_VERSION: str = "0.1.0"
     DEBUG: bool = False
+    CORS_ALLOWED_ORIGINS: str = ""
+    AUTH_REQUIRED_IN_DEV: bool = False
+    JWT_ALGORITHM: str = "HS256"
+    # Comma-separated list of allowed origins for CORS.
+    # Leave empty for dev (allows all origins, credentials disabled).
+    # Example: "https://app.example.com,https://dashboard.example.com"
 
     model_config = {"env_file": ".env", "extra": "ignore"}
 

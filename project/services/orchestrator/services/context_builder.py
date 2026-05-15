@@ -125,21 +125,49 @@ class ContextBuilder:
         - Last ~20% of context
         - Least attention to middle ~60%
 
-        Strategy:
-        - Highest priority (>= 80): BEGINNING
-        - Medium priority (40-79): MIDDLE
-        - Lower priority (20-39): END (but still visible)
-        - Lowest priority (< 20): END (least important)
+        Strategy (fixed v4.6):
+        - Critical (priority >= 80): BEGINNING (full content)
+        - Critical summary: END (duplicated summary of critical sections)
+        - Medium (40-79): MIDDLE
+        - Low (20-39): BEFORE_END
+        - Lowest (< 20): NEXT_TO_LAST
         """
-        beginning = [s for s in sections if s.priority >= 80]
-        middle = [s for s in sections if 40 <= s.priority < 80]
-        end = [s for s in sections if s.priority < 40]
+        critical = [s for s in sections if s.priority >= 80]
+        medium = [s for s in sections if 40 <= s.priority < 80]
+        low = [s for s in sections if 20 <= s.priority < 40]
+        lowest = [s for s in sections if s.priority < 20]
 
-        beginning.sort(key=lambda s: s.priority, reverse=True)
-        middle.sort(key=lambda s: s.priority, reverse=True)
-        end.sort(key=lambda s: s.priority, reverse=True)
+        for group in [critical, medium, low, lowest]:
+            group.sort(key=lambda s: s.priority, reverse=True)
 
-        return beginning + middle + end
+        result = list(critical)
+
+        critical_summary = self._build_critical_summary(critical)
+        if critical_summary:
+            summary_section = ContextSection(
+                name="Critical Summary",
+                content=critical_summary,
+                priority=85,
+                token_count=estimate_tokens(critical_summary),
+            )
+            result = result + medium + low + lowest + [summary_section]
+        else:
+            result = result + medium + low + lowest
+
+        return result
+
+    def _build_critical_summary(self, critical: list[ContextSection]) -> str:
+        """Build a brief summary of critical sections for end-of-context placement."""
+        if not critical:
+            return ""
+        lines = []
+        for section in critical:
+            name = section.name
+            excerpt = section.content[:200].replace("\n", " ").strip()
+            lines.append(f"- {name}: {excerpt}")
+            if len(lines) >= 5:
+                break
+        return "Key requirements (repeated for attention):\n" + "\n".join(lines)
 
     def get_summary(self) -> dict[str, Any]:
         """Get summary of context composition."""

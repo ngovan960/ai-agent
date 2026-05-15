@@ -72,9 +72,10 @@ class TestTaskSchemas:
         data = TaskCreate(title="Task", project_id=project_id, module_id=module_id)
         assert data.module_id == module_id
 
-    def test_task_update_status(self):
-        data = TaskUpdate(status=TaskStatus.IMPLEMENTING)
-        assert data.status == TaskStatus.IMPLEMENTING
+    def test_task_update_priority(self):
+        data = TaskUpdate(priority=TaskPriority.HIGH)
+        assert data.priority == TaskPriority.HIGH
+        assert not hasattr(data, "status")
 
     def test_task_update_confidence_bounds(self):
         data = TaskUpdate(confidence=0.85)
