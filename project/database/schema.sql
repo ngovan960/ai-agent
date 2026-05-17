@@ -31,6 +31,7 @@ CREATE TYPE risk_level AS ENUM ('LOW', 'MEDIUM', 'HIGH', 'CRITICAL');
 CREATE TYPE deployment_env AS ENUM ('staging', 'production');
 CREATE TYPE deployment_status AS ENUM ('pending', 'building', 'deploying', 'running', 'failed', 'rolled_back');
 CREATE TYPE llm_call_status AS ENUM ('pending', 'completed', 'failed', 'timeout', 'rate_limited');
+CREATE TYPE law_severity AS ENUM ('critical', 'high', 'medium');
 
 -- ============================================================
 -- USERS & AUTH
@@ -113,6 +114,7 @@ CREATE TABLE module_dependencies (
     module_id UUID NOT NULL REFERENCES modules(id) ON DELETE CASCADE,
     depends_on_module_id UUID NOT NULL REFERENCES modules(id) ON DELETE CASCADE,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     UNIQUE(module_id, depends_on_module_id),
     CHECK (module_id != depends_on_module_id)
 );
@@ -163,7 +165,8 @@ CREATE TABLE task_outputs (
     task_id UUID NOT NULL REFERENCES tasks(id) ON DELETE CASCADE,
     output_type VARCHAR(50) NOT NULL,
     content JSONB NOT NULL DEFAULT '{}',
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
 CREATE INDEX idx_task_outputs_task_id ON task_outputs(task_id);
@@ -176,6 +179,7 @@ CREATE TABLE task_dependencies (
     depends_on_task_id UUID NOT NULL REFERENCES tasks(id) ON DELETE CASCADE,
     dependency_type VARCHAR(50) NOT NULL DEFAULT 'blocks',
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     UNIQUE(task_id, depends_on_task_id),
     CHECK (task_id != depends_on_task_id)
 );
@@ -195,7 +199,8 @@ CREATE TABLE retries (
     agent_name VARCHAR(100) NOT NULL,
     output JSONB DEFAULT '{}',
     error_log TEXT,
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
 CREATE INDEX idx_retries_task_id ON retries(task_id);
@@ -215,7 +220,8 @@ CREATE TABLE audit_logs (
     output JSONB DEFAULT '{}',
     result audit_result NOT NULL,
     message TEXT,
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
 CREATE INDEX idx_audit_logs_task_id ON audit_logs(task_id);
@@ -243,7 +249,7 @@ CREATE TABLE mentor_instructions (
 CREATE INDEX idx_mentor_instructions_task_id ON mentor_instructions(task_id);
 CREATE INDEX idx_mentor_instructions_type ON mentor_instructions(instruction_type);
 CREATE INDEX idx_mentor_instructions_applied ON mentor_instructions(applied);
-CREATE INDEX idx_mentor_instructions_embedding ON mentor_instructions USING ivfflat (embedding vector_cosine_ops);
+CREATE INDEX idx_mentor_instructions_embedding ON mentor_instructions USING hnsw (embedding vector_cosine_ops);
 
 -- ============================================================
 -- MENTOR QUOTA
@@ -272,7 +278,8 @@ CREATE TABLE decisions (
     context JSONB DEFAULT '{}',
     alternatives JSONB DEFAULT '[]',
     decided_by VARCHAR(100) NOT NULL DEFAULT 'mentor',
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
 CREATE INDEX idx_decisions_project_id ON decisions(project_id);
@@ -292,7 +299,9 @@ CREATE TABLE workflows (
     state JSONB DEFAULT '{}',
     started_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     completed_at TIMESTAMP WITH TIME ZONE,
-    error TEXT
+    error TEXT,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
 CREATE INDEX idx_workflows_project_id ON workflows(project_id);
@@ -313,6 +322,7 @@ CREATE TABLE deployments (
     deployed_by VARCHAR(100),
     approved_by UUID REFERENCES users(id) ON DELETE SET NULL,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     completed_at TIMESTAMP WITH TIME ZONE
 );
 
@@ -336,7 +346,8 @@ CREATE TABLE cost_tracking (
     latency_ms INT NOT NULL DEFAULT 0,
     status llm_call_status NOT NULL DEFAULT 'completed',
     error_message TEXT,
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
 CREATE INDEX idx_cost_tracking_task_id ON cost_tracking(task_id);
@@ -364,7 +375,8 @@ CREATE TABLE llm_call_logs (
     error_message TEXT,
     retry_count INT NOT NULL DEFAULT 0,
     circuit_breaker_triggered BOOLEAN NOT NULL DEFAULT FALSE,
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
 CREATE INDEX idx_llm_call_logs_task_id ON llm_call_logs(task_id);
@@ -385,7 +397,8 @@ CREATE TABLE embedding_config (
     cost_per_1k_input_tokens FLOAT NOT NULL DEFAULT 0,
     cost_per_1k_output_tokens FLOAT NOT NULL DEFAULT 0,
     is_active BOOLEAN NOT NULL DEFAULT TRUE,
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
 -- Seed default embedding models
@@ -422,10 +435,8 @@ BEGIN
 END;
 $$ language 'plpgsql';
 
--- Apply updated_at triggers
+-- Triggers (same columns as before)
 CREATE TRIGGER update_projects_updated_at BEFORE UPDATE ON projects
-    FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
-CREATE TRIGGER update_modules_updated_at BEFORE UPDATE ON modules
     FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 CREATE TRIGGER update_tasks_updated_at BEFORE UPDATE ON tasks
     FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
@@ -434,6 +445,27 @@ CREATE TRIGGER update_mentor_instructions_updated_at BEFORE UPDATE ON mentor_ins
 CREATE TRIGGER update_circuit_breaker_updated_at BEFORE UPDATE ON circuit_breaker_state
     FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
+-- ============================================================
+-- LAW VIOLATIONS
+-- ============================================================
+
+CREATE TABLE law_violations (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    task_id UUID REFERENCES tasks(id) ON DELETE SET NULL,
+    law_id VARCHAR(50) NOT NULL,
+    law_name VARCHAR(255) NOT NULL,
+    severity law_severity NOT NULL,
+    violation_details TEXT NOT NULL,
+    location VARCHAR(500),
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+CREATE TRIGGER update_law_violations_updated_at BEFORE UPDATE ON law_violations
+    FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+-- ============================================================
+-- VIEWS
 -- ============================================================
 -- VIEWS
 -- ============================================================
@@ -505,3 +537,28 @@ GROUP BY ct.project_id, ct.agent_name, ct.model;
 --   - Added approved_by (FK to users) to deployments
 --   - Enhanced cost_tracking with latency_ms, status, agent_name
 --   - Added v_task_summary and v_cost_summary views
+
+-- ============================================================
+-- PERFORMANCE OPTIMIZATION INDEXES (Phase 9)
+-- ============================================================
+
+-- Composite indexes for common query patterns
+CREATE INDEX IF NOT EXISTS idx_tasks_project_status ON tasks(project_id, status);
+CREATE INDEX IF NOT EXISTS idx_tasks_status_priority ON tasks(status, priority);
+CREATE INDEX IF NOT EXISTS idx_tasks_created_status ON tasks(created_at, status);
+
+-- Dashboard queries
+CREATE INDEX IF NOT EXISTS idx_tasks_owner_status ON tasks(owner, status);
+CREATE INDEX IF NOT EXISTS idx_audit_logs_result_created ON audit_logs(result, created_at DESC);
+
+-- Memory queries  
+CREATE INDEX IF NOT EXISTS idx_instructions_task_applied ON mentor_instructions(task_id, applied);
+CREATE INDEX IF NOT EXISTS idx_decisions_project_created ON decisions(project_id, created_at DESC);
+
+-- Cost analysis queries
+CREATE INDEX IF NOT EXISTS idx_cost_tracking_project_model ON cost_tracking(project_id, model);
+CREATE INDEX IF NOT EXISTS idx_cost_tracking_created_model ON cost_tracking(created_at, model);
+
+-- LLM call analysis
+CREATE INDEX IF NOT EXISTS idx_llm_call_logs_model_created ON llm_call_logs(model, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_llm_call_logs_agent_status ON llm_call_logs(agent_name, status);

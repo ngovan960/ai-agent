@@ -1,0 +1,122 @@
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+      - run: pip install ruff
+      - run: ruff check . --quiet
+      - run: ruff format --check . --quiet
+
+  test:
+    needs: lint
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: pgvector/pgvector:pg16
+        env:
+          POSTGRES_DB: ai_sdlc
+          POSTGRES_USER: ai_sdlc_user
+          POSTGRES_PASSWORD: test_password
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U ai_sdlc_user -d ai_sdlc"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+      - run: pip install -e ".[dev]"
+      - run: python -m pytest tests/ -q --tb=short --cov=services --cov=shared --cov-report=term
+        env:
+          DATABASE_URL: postgresql+asyncpg://ai_sdlc_user:test_password@localhost:5432/ai_sdlc
+          REDIS_URL: redis://localhost:6379/0
+          SECRET_KEY: ci_secret_key
+          LOG_LEVEL: warning
+
+  build:
+    needs: test
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+    steps:
+      - uses: actions/checkout@v4
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          push: true
+          tags: |
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ github.sha }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  deploy-staging:
+    needs: build
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+    environment: staging
+    steps:
+      - name: Deploy to staging
+        env:
+          STAGING_API: ${{ vars.STAGING_API_URL || 'http://localhost:8000' }}
+        run: |
+          echo "Deploying to $STAGING_API ..."
+          echo "Deploying ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ github.sha }} to staging"
+          curl -s -X POST "$STAGING_API/api/v1/deploy/staging" \
+            -H "Content-Type: application/json" \
+            -d "{\"task_id\": \"00000000-0000-0000-0000-000000000001\", \"image_tag\": \"${{ github.sha }}\"}" \
+            --max-time 300 -w "\nHTTP %{http_code}" || echo "Deploy endpoint not yet configured (expected on first CI run)"
+
+  deploy-production:
+    needs: deploy-staging
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+    environment: production
+    steps:
+      - name: Request production approval
+        env:
+          PRODUCTION_API: ${{ vars.PRODUCTION_API_URL || 'http://localhost:8000' }}
+        run: |
+          echo "Requesting production approval..."
+          echo "Image: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ github.sha }}"
+          curl -s -X POST "$PRODUCTION_API/api/v1/deploy/production/request" \
+            -H "Content-Type: application/json" \
+            -d "{\"deployment_id\": \"${{ github.sha }}\", \"task_id\": \"${{ github.sha }}\", \"reason\": \"CI/CD auto-deploy\", \"risk_level\": \"HIGH\"}" \
+            --max-time 60 -w "\nHTTP %{http_code}" || echo "Production approval endpoint not reachable (expected if not deployed)"

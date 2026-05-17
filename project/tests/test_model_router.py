@@ -1,8 +1,5 @@
-import pytest
-from uuid import uuid4
 
 from shared.config.model_router import ModelRouter
-from shared.config.settings import get_settings
 
 
 class TestModelRouter:

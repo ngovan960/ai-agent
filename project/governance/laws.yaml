@@ -63,7 +63,7 @@ rules:
   - id: LAW-009
     name: No DONE status without verification
     severity: critical
-    description: A task may only be marked as DONE after passing sandbox verification (lint, tests, build, security scan). Exception: Mentor may approve ESCALATED -> DONE ONLY IF the task has a passed verification record from a prior run.
+    description: "A task may only be marked as DONE after passing sandbox verification (lint, tests, build, security scan). Exception: Mentor may approve ESCALATED -> DONE ONLY IF the task has a passed verification record from a prior run."
     check_rule: "DONE status requires passing verification pipeline, OR Mentor override with verified output evidence"
     exception: "ESCALATED -> DONE is allowed ONLY when task has verification_result = PASS in audit history. Mentor must cite the verification evidence in audit log."
     category: governance

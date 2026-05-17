@@ -1,11 +1,11 @@
-import pytest
 from unittest.mock import AsyncMock, MagicMock
 from uuid import uuid4
 
-from shared.schemas.project import ProjectCreate, ProjectUpdate
-from shared.schemas.task import StateTransitionRequest
+import pytest
+
 from shared.models.project import Project, ProjectStatus
-from shared.models.task import Task, TaskStatus, TaskPriority, RiskLevel
+from shared.models.task import TaskStatus
+from shared.schemas.project import ProjectCreate
 
 
 @pytest.fixture
@@ -38,7 +38,7 @@ class TestProjectService:
         data = ProjectCreate(name="Test Project", description="A test project")
         mock_db.refresh = AsyncMock(side_effect=lambda x: None)
 
-        result = await create_project(mock_db, data)
+        await create_project(mock_db, data)
 
         mock_db.add.assert_called_once()
         mock_db.flush.assert_called_once()

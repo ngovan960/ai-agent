@@ -1,155 +1,137 @@
-# Architecture Change Log — v2 → v3
+# Architecture Change Log
 
-## Metadata
-- **From Version**: 2.0.0 (OpenCode-Centric)
-- **To Version**: 3.0.0 (FastAPI-Centric)
-- **Date**: 2026-05-15
-- **Reason**: OpenCode is a coding agent tool, not an orchestration platform. FastAPI backend is better suited for brain role.
+## AI SDLC Orchestrator — Version History
 
 ---
 
-## 1. Core Architecture Change
+## v5.0.0 (2026-05-17) — Phase 6 & 7 Complete
 
-### Before (v2)
-```
-OpenCode = Central Brain
-├── Orchestrates all agents
-├── Manages state machine
-├── Dispatches tasks
-├── Tracks costs
-└── Logs audits
-```
+### Added
+- **Phase 6: Memory System**
+  - Instruction ledger with CRUD operations
+  - Pseudo-embeddings for offline semantic search
+  - Decision history tracking
+  - Memory caching (Redis + in-memory fallback)
+  - Memory ↔ workflow integration
+  - Memory API router with search endpoint
+- **Phase 7: Dashboard & Observability**
+  - Next.js 14 frontend with shadcn/ui components
+  - TailwindCSS 3 with custom theme + dark mode
+  - 9 pages: Home, Tasks, Audit, Agents, Cost, Memory, Alerts, Workflow, Projects
+  - Real-time WebSocket updates
+  - OpenTelemetry distributed tracing
+  - Prometheus metrics (task counts, cost, latency, retry rate, confidence)
+  - JSON structured logging
+  - Grafana dashboards with auto-provisioning
+  - 5 Prometheus alert rules
+  - Promtail log collector
+  - Docker resource limits for all services
+- **New services**: `services/memory/` (6 files), `shared/observability/` (3 files)
+- **New routers**: `dashboard.py`, `governance.py`, `models.py`, `verification.py`
+- **New components**: 11 UI components (Button, Card, Badge, Input, Table, Skeleton, Toast, etc.)
+- **New scripts**: `scripts/start.sh`, `scripts/stop.sh`
+- **Tests**: 478/478 pass (up from 38)
 
-### After (v3)
-```
-FastAPI = Central Brain
-├── Orchestrates all agents
-├── Manages state machine
-├── Dispatches tasks
-├── Tracks costs
-└── Logs audits
-
-OpenCode = LLM + Tool Provider
-├── Provides LLM access (DeepSeek, Qwen)
-└── Provides tool execution (bash, edit, write, read, glob, grep)
-```
-
-### Lý do thay đổi
-1. OpenCode là CLI coding agent — không được thiết kế để orchestrate multiple agents
-2. OpenCode không thể manage state machine lifecycle
-3. OpenCode không thể run concurrent workflows
-4. FastAPI phù hợp hơn cho orchestration: async, type-safe, scalable
-5. Tách biệt rõ ràng giữa orchestration (FastAPI) và execution (OpenCode)
-
----
-
-## 2. Files Changed
-
-| File | Change Type | Description |
-|---|---|---|
-| `ARCHITECTURE.md` | Rewrite | Updated all sections to reflect FastAPI as brain |
-| `docs/opencode-architecture.md` | Complete rewrite | OpenCode as LLM + Tool Provider, not brain |
-| `specs/opencode_adapter.yaml` | Rename + Update | Renamed to `opencode_integration.yaml`, updated role |
-| `docs/llm-integration.md` | Update | Added 2-path LLM Gateway (LiteLLM + OpenCode) |
-| `docs/data-flow.md` | Update | Updated LLM call flow and component integration |
-| `README.md` | Update | Updated overview, directory structure, version |
+### Changed
+- PostgreSQL image: `postgres:16` → `pgvector/pgvector:pg16`
+- All SQLAlchemy Enum columns now use explicit `name` parameter to match schema.sql
+- ThemeProvider: class-based dark mode for shadcn compatibility
+- Toast system: migrated to Radix UI Toast
 
 ---
 
-## 3. Files NOT Changed
+## v4.0.0 (2026-05-15) — Dynamic Model Router
 
-| File | Reason |
-|---|---|
-| `shared/config/state_transitions.py` | State machine logic correct |
-| `database/schema.sql` | Schema correct |
-| `governance/laws.yaml` | 20 laws correct |
-| `docs/state-machine.md` | State machine spec correct |
-| `docs/api-specification.md` | API design correct |
-| `docs/testing-strategy.md` | Testing approach correct |
-| `docs/security-design.md` | Security design correct |
-| `docs/error-handling-resilience.md` | Resilience design correct |
-| `docs/non-functional-requirements.md` | NFRs correct |
-| `docs/risk-assessment.md` | Risk assessment correct |
-| `docs/agent-matrix.md` | Agent matrix correct |
-| `shared/config/models.yaml` | Model config correct |
-| `agents/prompts/*.txt` (7 files) | Prompt templates correct |
-| `specs/gatekeeper.yaml` | Agent spec correct |
-| `specs/orchestrator.yaml` | Agent spec correct |
-| `specs/specialist.yaml` | Agent spec correct |
-| `specs/auditor.yaml` | Agent spec correct |
-| `specs/mentor.yaml` | Agent spec correct |
-| `specs/devops.yaml` | Agent spec correct |
-| `specs/monitoring.yaml` | Agent spec correct |
+### Added
+- Dynamic Model Router (`shared/config/model_router.py`)
+- Model capability registry (`shared/config/model_capabilities.yaml`)
+- Pydantic settings (`shared/config/settings.py`)
+- Optimistic locking (`shared/concurrency.py`)
+- Retry service (`services/orchestrator/services/retry_service.py`)
+- Audit service (`services/orchestrator/services/audit_service.py`)
+- Confidence engine (`services/orchestrator/services/confidence_engine.py`)
+- Risk classifier (`services/orchestrator/services/risk_classifier.py`)
+- Law engine (`services/orchestrator/services/law_engine.py`)
+- Mode selector (`services/orchestrator/services/mode_selector.py`)
+- Validation service (`services/orchestrator/services/validation.py`)
+- Verification service (`services/orchestrator/services/verification_service.py`)
+- Auditor service (`services/orchestrator/services/auditor_service.py`)
+- Mentor service (`services/orchestrator/services/mentor_service.py`)
+- Rollback service (`services/orchestrator/services/rollback_service.py`)
+- Circuit breaker (`shared/llm/circuit_breaker.py`)
+- Retry handler (`shared/llm/retry_handler.py`)
+- 13 Pydantic schema files in `shared/schemas/`
+- 20 SQLAlchemy ORM models in `shared/models/`
+- Alembic migrations
+- 38 unit tests
 
----
-
-## 4. Key Changes Summary
-
-| Aspect | v2 | v3 |
-|---|---|---|
-| Brain | OpenCode | FastAPI backend |
-| OpenCode role | Central brain | LLM + Tool Provider |
-| LLM calls | All via OpenCode | LiteLLM (simple) + OpenCode (coding) |
-| State machine | OpenCode manages | FastAPI engine |
-| Agent dispatch | OpenCode calls agents | FastAPI router dispatch |
-| Cost tracking | OpenCode calculates | FastAPI cost tracker |
-| Audit logging | OpenCode logs | FastAPI audit middleware |
-| Circuit breaker | OpenCode handles | FastAPI circuit breaker |
+### Changed
+- Brain: OpenCode → FastAPI
+- LLM calls: All via OpenCode → OpenCode + OpenCode
+- State machine: 9 states → 11 states (+FAILED, +CANCELLED)
+- Terminal states: 1 (DONE) → 3 (DONE, FAILED, CANCELLED)
+- Dependencies: UUID[] array → Junction tables
+- Auth: None → JWT + API Key
+- Circuit breaker: None → Per-model
+- Mentor quota: YAML config → Database-enforced
+- Confidence: Could go negative → Clamped [0, 1]
+- Laws: 12 → 20
+- Prompt templates: 4 → 7
 
 ---
 
-## 5. Impact on Implementation
+## v3.0.0 (2026-05-14) — FastAPI Migration
 
-### Phase 1 (Core State System)
-- **No impact** — State machine, database schema, APIs remain the same
-- **New**: FastAPI LLM Gateway service will be created in Phase 3
+### Added
+- FastAPI backend as central brain
+- State transition rules (`shared/config/state_transitions.py`)
+- Model configuration (`shared/config/models.yaml`)
+- Database schema v2.0.0 (15+ tables)
+- 15+ design documents in `docs/`
+- 8 agent specs in `specs/`
+- Docker Compose (PostgreSQL, Redis, API)
+- OpenCode integration spec
 
-### Phase 2 (Workflow Engine)
-- **Impact**: Workflow engine now runs in FastAPI, not OpenCode
-- **New**: Agent router service in FastAPI
-
-### Phase 3 (Agent Runtime)
-- **Major impact**: Agents now called via FastAPI LLM Gateway
-- **New**: OpenCode integration service (replaces OpenCode adapter)
-- **New**: LiteLLM integration for simple agents
-
-### Phase 4+ (Verification, Governance, Memory, etc.)
-- **No impact** — These layers remain the same
-
----
-
-## 6. Migration Notes
-
-### For Developers
-1. Update all references from "OpenCode as brain" to "FastAPI as brain"
-2. Update `specs/opencode_adapter.yaml` → `specs/opencode_integration.yaml`
-3. Update LLM call flow to use 2-path gateway
-4. Update architecture diagrams in documentation
-
-### For Code Implementation
-1. Create FastAPI LLM Gateway service
-2. Create LiteLLM integration for simple agents
-3. Create OpenCode integration service for coding agents
-4. Update agent dispatch to use FastAPI router
+### Changed
+- Brain: Self-built → FastAPI
+- OpenCode role: Central brain → LLM + Tool provider
+- LLM config: Hardcoded → Environment variables
+- Cost tracking: Basic → Per-call logging
 
 ---
 
-## 7. Benefits of v3 Architecture
+## v2.0.0 (2026-05-13) — State Machine v2
 
-1. **Clear separation of concerns**: FastAPI = orchestration, OpenCode = execution
-2. **Better scalability**: FastAPI can scale independently of OpenCode
-3. **Easier testing**: Each component can be tested in isolation
-4. **More flexible**: Can swap OpenCode for other tool providers if needed
-5. **Cost control**: FastAPI tracks all LLM costs centrally
-6. **Audit trail**: FastAPI logs all actions to database
-7. **Resilience**: FastAPI circuit breaker protects against LLM failures
+### Added
+- FAILED and CANCELLED states
+- Junction tables for dependencies
+- Embedding config table (configurable dimensions)
+- LLM call logs table
+- Circuit breaker state table
+- Mentor quota table (database-enforced)
+- Auth tables (users, api_keys)
+- 20 architectural laws (up from 12)
+- 7 prompt templates (up from 4)
+
+### Changed
+- States: 9 → 11
+- Terminal states: 1 → 3
+- ESCALATED→DONE: Only with verified output evidence
+- Laws: 12 → 20
+- Prompts: 4 → 7
 
 ---
 
-## 8. Version History
+## v1.0.0 (2026-05-12) — Initial Design
 
-| Version | Date | Description |
-|---|---|---|
-| 1.0.0 | 2026-05-13 | Initial design (self-built orchestration) |
-| 2.0.0 | 2026-05-14 | OpenCode as central brain |
-| 3.0.0 | 2026-05-15 | FastAPI as brain, OpenCode as LLM + Tool Provider |
+### Added
+- Initial system design
+- 9-state state machine
+- 4 agent prompt templates
+- 12 architectural laws
+- 4 design documents
+
+---
+
+**Last Updated**: 2026-05-17
+**Current Version**: 5.0.0

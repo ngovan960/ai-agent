@@ -1,6 +1,8 @@
 from datetime import datetime
 from uuid import UUID
+
 from pydantic import BaseModel, Field
+
 from shared.models.module import ModuleStatus
 
 

@@ -1,7 +1,9 @@
 from datetime import datetime
 from uuid import UUID
+
 from pydantic import BaseModel, Field
-from shared.models.task import TaskStatus, TaskPriority, RiskLevel
+
+from shared.models.task import RiskLevel, TaskPriority, TaskStatus
 
 
 class TaskBase(BaseModel):

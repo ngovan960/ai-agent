@@ -1,14 +1,11 @@
-# Model Configuration - AI SDLC System v4
-# Dynamic routing: models are NOT fixed to agents.
-# See model_capabilities.yaml for full capability registry.
-# API endpoints are loaded from environment variables, NOT hardcoded here.
+# Model Configuration - AI SDLC System v5
+# All LLM calls go through OpenCode — no external providers needed.
+# OpenCode manages model routing, rate limiting, and cost tracking internally.
 
 models:
   deepseek_v4_flash:
     name: "DeepSeek V4 Flash"
-    provider: "deepseek"
-    api_endpoint: "${DEEPSEEK_API_ENDPOINT}"
-    api_key_env: "DEEPSEEK_API_KEY"
+    provider: "opencode"
     max_tokens: 4096
     temperature: 0.1
     cost_per_1k_input_tokens: 0.0001
@@ -19,9 +16,7 @@ models:
 
   deepseek_v4_pro:
     name: "DeepSeek V4 Pro"
-    provider: "deepseek"
-    api_endpoint: "${DEEPSEEK_API_ENDPOINT}"
-    api_key_env: "DEEPSEEK_API_KEY"
+    provider: "opencode"
     max_tokens: 8192
     temperature: 0.1
     cost_per_1k_input_tokens: 0.00043
@@ -32,9 +27,7 @@ models:
 
   qwen_3_5_plus:
     name: "Qwen 3.5 Plus"
-    provider: "qwen"
-    api_endpoint: "${QWEN_API_ENDPOINT}"
-    api_key_env: "QWEN_API_KEY"
+    provider: "opencode"
     max_tokens: 8192
     temperature: 0.1
     cost_per_1k_input_tokens: 0.00039
@@ -45,9 +38,7 @@ models:
 
   qwen_3_6_plus:
     name: "Qwen 3.6 Plus"
-    provider: "qwen"
-    api_endpoint: "${QWEN_API_ENDPOINT}"
-    api_key_env: "QWEN_API_KEY"
+    provider: "opencode"
     max_tokens: 16384
     temperature: 0.1
     cost_per_1k_input_tokens: 0.00033
@@ -58,9 +49,7 @@ models:
 
   minimax_m2_7:
     name: "MiniMax M2.7"
-    provider: "minimax"
-    api_endpoint: "${MINIMAX_API_ENDPOINT}"
-    api_key_env: "MINIMAX_API_KEY"
+    provider: "opencode"
     max_tokens: 8192
     temperature: 0.1
     cost_per_1k_input_tokens: 0.00026
@@ -152,9 +141,8 @@ embedding_models:
   default: "text-embedding-3-small"
   models:
     - name: "text-embedding-3-small"
-      provider: "openai"
+      provider: "opencode"
       dimensions: 1536
-      api_key_env: "OPENAI_API_KEY"
       cost_per_1k_tokens: 0.00002
     - name: "bge-large-en-v1.5"
       provider: "local"
@@ -167,23 +155,18 @@ embedding_models:
 
 environment_variables:
   required:
-    - DEEPSEEK_API_ENDPOINT
-    - DEEPSEEK_API_KEY
-    - QWEN_API_ENDPOINT
-    - QWEN_API_KEY
-    - MINIMAX_API_ENDPOINT
-    - MINIMAX_API_KEY
+    - OPENCODE_API_URL
+    - OPENCODE_API_KEY
     - DATABASE_URL
     - REDIS_URL
     - JWT_SECRET
   optional:
-    - OPENAI_API_ENDPOINT
     - LOG_LEVEL
     - EMBEDDING_MODEL
 
 metadata:
-  version: "4.0.0"
+  version: "5.0.0"
   created_at: "2026-05-15"
-  last_updated: "2026-05-15"
+  last_updated: "2026-05-17"
   total_models: 5
-  change_from_v3: "Removed GLM 5.1, Kimi K2.6, MiMo-v2.5-Pro. Added MiniMax M2.7. Implemented dynamic routing."
+  change_from_v4: "Removed LiteLLM. All LLM calls now go through OpenCode. Removed api_endpoint and api_key_env from model configs."

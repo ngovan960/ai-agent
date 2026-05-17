@@ -1,0 +1,18 @@
+auto_rollback: true
+manual_approval: false
+max_rollbacks: 3
+revert_method: git_revert
+
+risk_policies:
+  low:
+    auto_rollback: false
+    manual_approval: true
+  medium:
+    auto_rollback: true
+    manual_approval: false
+  high:
+    auto_rollback: true
+    manual_approval: false
+  critical:
+    auto_rollback: true
+    manual_approval: false

@@ -1,0 +1,58 @@
+{
+  "__inputs": [],
+  "__requires": [],
+  "title": "SDLC System Overview",
+  "version": 1,
+  "panels": [
+    {
+      "title": "Active Tasks",
+      "type": "stat",
+      "datasource": "Prometheus",
+      "targets": [{"expr": "sum(active_tasks)", "legendFormat": "Active"}],
+      "gridPos": {"x": 0, "y": 0, "w": 4, "h": 4}
+    },
+    {
+      "title": "Task Confidence",
+      "type": "gauge",
+      "datasource": "Prometheus",
+      "targets": [{"expr": "avg(task_confidence)", "legendFormat": "Confidence"}],
+      "gridPos": {"x": 4, "y": 0, "w": 4, "h": 4}
+    },
+    {
+      "title": "Agent Calls",
+      "type": "stat",
+      "datasource": "Prometheus",
+      "targets": [{"expr": "sum(rate(agent_calls_total[5m]))", "legendFormat": "Calls/s"}],
+      "gridPos": {"x": 8, "y": 0, "w": 4, "h": 4}
+    },
+    {
+      "title": "Task Duration (95th)",
+      "type": "stat",
+      "datasource": "Prometheus",
+      "targets": [{"expr": "histogram_quantile(0.95, sum(rate(task_duration_seconds_bucket[5m])) by (le))", "legendFormat": "P95"}],
+      "gridPos": {"x": 12, "y": 0, "w": 4, "h": 4}
+    },
+    {
+      "title": "Tasks Created",
+      "type": "timeseries",
+      "datasource": "Prometheus",
+      "targets": [{"expr": "sum(rate(tasks_total[5m])) by (status)", "legendFormat": "{{status}}"}],
+      "gridPos": {"x": 0, "y": 4, "w": 8, "h": 8}
+    },
+    {
+      "title": "Cost by Model",
+      "type": "barchart",
+      "datasource": "Prometheus",
+      "targets": [{"expr": "sum(cost_usd_total) by (model)", "legendFormat": "{{model}}"}],
+      "gridPos": {"x": 8, "y": 4, "w": 8, "h": 8}
+    },
+    {
+      "title": "Recent Logs",
+      "type": "logs",
+      "datasource": "Loki",
+      "targets": [{"expr": "{job=\"fastapi\"} |= \"info\"", "legendFormat": ""}],
+      "gridPos": {"x": 0, "y": 12, "w": 16, "h": 8}
+    }
+  ],
+  "schemaVersion": 39
+}

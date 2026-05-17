@@ -1,11 +1,13 @@
-from shared.models.base import Base
-from sqlalchemy import Column, String, Text, Enum, ForeignKey, JSON
-from sqlalchemy.dialects.postgresql import UUID
-from sqlalchemy.orm import relationship
 import enum
 
+from sqlalchemy import JSON, Column, Enum, ForeignKey, String, Text
+from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy.orm import relationship
 
-class ProjectStatus(str, enum.Enum):
+from shared.models.base import Base
+
+
+class ProjectStatus(enum.StrEnum):
     ACTIVE = "ACTIVE"
     PAUSED = "PAUSED"
     COMPLETED = "COMPLETED"
@@ -17,7 +19,7 @@ class Project(Base):
 
     name = Column(String(255), unique=True, nullable=False)
     description = Column(Text)
-    status = Column(Enum(ProjectStatus), nullable=False, default=ProjectStatus.ACTIVE)
+    status = Column(Enum(ProjectStatus, name="project_status"), nullable=False, default=ProjectStatus.ACTIVE)
     tech_stack = Column(JSON, default=lambda: [])
     architecture = Column(Text)
     rules = Column(JSON, default=lambda: {})

@@ -3,11 +3,18 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from shared.database import get_db
-from shared.schemas.project import (
-    ProjectCreate, ProjectUpdate, ProjectResponse, ProjectListResponse,
-)
+from services.orchestrator.services import modules as module_service
 from services.orchestrator.services import projects as project_service
+from services.orchestrator.services import tasks as task_service
+from shared.database import get_db
+from shared.schemas.module import ModuleListResponse, ModuleResponse
+from shared.schemas.project import (
+    ProjectCreate,
+    ProjectListResponse,
+    ProjectResponse,
+    ProjectUpdate,
+)
+from shared.schemas.task import TaskListResponse, TaskResponse
 
 router = APIRouter()
 
@@ -38,7 +45,7 @@ async def get_project(project_id: UUID, db: AsyncSession = Depends(get_db)):
 
 @router.post("/", response_model=ProjectResponse, status_code=201)
 async def create_project(data: ProjectCreate, db: AsyncSession = Depends(get_db)):
-    existing = await project_service.get_project(db, UUID(int=0))
+    await project_service.get_project(db, UUID(int=0))
     project = await project_service.create_project(db, data)
     return ProjectResponse.model_validate(project)
 
@@ -51,6 +58,40 @@ async def update_project(
     if not project:
         raise HTTPException(status_code=404, detail="Project not found")
     return ProjectResponse.model_validate(project)
+
+
+@router.get("/{project_id}/modules", response_model=ModuleListResponse)
+async def list_project_modules(
+    project_id: UUID,
+    db: AsyncSession = Depends(get_db),
+    page: int = Query(1, ge=1),
+    page_size: int = Query(20, ge=1, le=100),
+):
+    items, total = await module_service.get_modules(db, project_id, page, page_size)
+    return ModuleListResponse(
+        items=[ModuleResponse.model_validate(m) for m in items],
+        total=total,
+        page=page,
+        page_size=page_size,
+    )
+
+
+@router.get("/{project_id}/tasks", response_model=TaskListResponse)
+async def list_project_tasks(
+    project_id: UUID,
+    db: AsyncSession = Depends(get_db),
+    page: int = Query(1, ge=1),
+    page_size: int = Query(20, ge=1, le=100),
+    status: str | None = None,
+    priority: str | None = None,
+):
+    items, total = await task_service.get_tasks(db, project_id=project_id, page=page, page_size=page_size, status=status, priority=priority)
+    return TaskListResponse(
+        items=[TaskResponse.model_validate(t) for t in items],
+        total=total,
+        page=page,
+        page_size=page_size,
+    )
 
 
 @router.delete("/{project_id}", status_code=204)

@@ -1,13 +1,22 @@
 from shared.models.base import Base
-from shared.models.user import User, ApiKey
-from shared.models.project import Project
+from shared.models.law import LawSeverity, LawViolation
 from shared.models.module import Module, ModuleDependency
-from shared.models.task import Task, TaskOutput, TaskDependency
+from shared.models.project import Project
 from shared.models.registry import (
-    Retry, AuditLog, MentorInstruction, MentorQuota,
-    Decision, Workflow, Deployment, CostTracking,
-    LLMCallLog, CircuitBreakerState, EmbeddingConfig,
+    AuditLog,
+    CircuitBreakerState,
+    CostTracking,
+    Decision,
+    Deployment,
+    EmbeddingConfig,
+    LLMCallLog,
+    MentorInstruction,
+    MentorQuota,
+    Retry,
+    Workflow,
 )
+from shared.models.task import Task, TaskDependency, TaskOutput
+from shared.models.user import ApiKey, User
 
 __all__ = [
     "Base",
@@ -30,4 +39,6 @@ __all__ = [
     "LLMCallLog",
     "CircuitBreakerState",
     "EmbeddingConfig",
+    "LawViolation",
+    "LawSeverity",
 ]

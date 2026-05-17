@@ -12,11 +12,10 @@ Created: 2026-05-15
 """
 
 from dataclasses import dataclass, field
-from enum import Enum
-from typing import Optional
+from enum import StrEnum
 
 
-class TaskType(str, Enum):
+class TaskType(StrEnum):
     CLASSIFICATION = "classification"
     CODE_GENERATION = "code_generation"
     REVIEW = "review"
@@ -25,28 +24,27 @@ class TaskType(str, Enum):
     MONITORING = "monitoring"
 
 
-class ContextSize(str, Enum):
+class ContextSize(StrEnum):
     SMALL = "small"       # <4K tokens
     MEDIUM = "medium"     # 4K-32K tokens
     LARGE = "large"       # 32K-128K tokens
     HUGE = "huge"         # >128K tokens
 
 
-class SpeedRequirement(str, Enum):
+class SpeedRequirement(StrEnum):
     FAST = "fast"
     BALANCED = "balanced"
     THOROUGH = "thorough"
 
 
-class SpeedCategory(str, Enum):
+class SpeedCategory(StrEnum):
     VERY_FAST = "very_fast"
     FAST = "fast"
     MEDIUM = "medium"
     SLOW = "slow"
 
 
-class LLMPath(str, Enum):
-    LITELLM = "litellm"
+class LLMPath(StrEnum):
     OPENCODE = "opencode"
 
 
@@ -83,7 +81,7 @@ class TaskProfile:
     speed_requirement: SpeedRequirement = SpeedRequirement.BALANCED
     budget_usd: float = 1.0
     is_retry: bool = False
-    previous_model: Optional[str] = None
+    previous_model: str | None = None
     requires_tools: bool = False
     priority: str = "MEDIUM"
 
@@ -109,17 +107,78 @@ class Model:
 class ModelSelection:
     primary: Model
     fallbacks: list = field(default_factory=list)
-    llm_path: LLMPath = LLMPath.LITELLM
+    llm_path: LLMPath = LLMPath.OPENCODE
     estimated_cost: float = 0.0
     estimated_tokens: int = 0
+
+
+def _load_default_models() -> list[Model]:
+    from pathlib import Path
+
+    import yaml
+    path = Path(__file__).parent / "models.yaml"
+    if not path.exists():
+        return []
+    with open(path) as f:
+        data = yaml.safe_load(f)
+    models = []
+    for name, cfg in data.get("models", {}).items():
+        cap = cfg.get("capabilities", {})
+        models.append(Model(
+            name=name, provider=cfg.get("provider", ""),
+            context_window=cfg.get("context_window", 128000),
+            max_output_tokens=cfg.get("max_output_tokens", 8192),
+            cost_per_1k_input=cfg.get("cost_per_1k_input", 0.0),
+            cost_per_1k_output=cfg.get("cost_per_1k_output", 0.0),
+            timeout_seconds=cfg.get("timeout_seconds", 60),
+            speed_category=SpeedCategory(cap.get("speed", "medium")) if isinstance(cap.get("speed"), str) else SpeedCategory.MEDIUM,
+            capabilities=cap,
+            strengths=cfg.get("strengths", []),
+            weaknesses=cfg.get("weaknesses", []),
+            best_for=cfg.get("best_for", []),
+            avoid_for=cfg.get("avoid_for", []),
+        ))
+    return models
 
 
 class ModelRouter:
     """Dynamic model router for AI SDLC System."""
 
-    def __init__(self, models: list[Model]):
-        self.models = models
+    def __init__(self, models: list[Model] | None = None):
+        self.models = models if models is not None else _load_default_models()
         self._circuit_breaker_state: dict[str, str] = {}
+
+    @property
+    def circuit_breaker(self) -> dict[str, str]:
+        return self._circuit_breaker_state
+
+    def get_available_models(self) -> list[dict]:
+        return [
+            {"name": m.name, "provider": m.provider, "context_window": m.context_window,
+             "capabilities": m.capabilities, "strengths": m.strengths, "weaknesses": m.weaknesses}
+            for m in self.models if self.get_circuit_breaker_state(m.name) != "open"
+        ]
+
+    def route_task(self, task_type: str = "", complexity: str = "medium", context_size: int = 4000, **kwargs) -> dict | None:
+        task_type_enum = TaskType.CLASSIFICATION
+        for t in TaskType:
+            if t.value == task_type or t.name.lower() == task_type.lower():
+                task_type_enum = t
+                break
+        comp = 5
+        if complexity == "low":
+            comp = 2
+        elif complexity == "high":
+            comp = 8
+        elif complexity == "critical":
+            comp = 10
+        max_cost = kwargs.get("max_cost_per_call", 1.0)
+        profile = TaskProfile(task_type=task_type_enum, complexity=comp, context_size=ContextSize.MEDIUM if context_size <= 4000 else ContextSize.LARGE, speed_requirement=SpeedRequirement.BALANCED, budget_usd=max_cost)
+        try:
+            selection = self.select(profile)
+            return {"model": selection.primary.name, "provider": selection.primary.provider, "estimated_cost": selection.estimated_cost}
+        except NoModelAvailableError:
+            return None
 
     def set_circuit_breaker_state(self, model_name: str, state: str):
         """Set circuit breaker state for a model: closed, open, half_open."""
@@ -138,6 +197,8 @@ class ModelRouter:
         ]
 
         if not candidates:
+            if not self.models:
+                raise NoModelAvailableError("No models configured")
             raise NoModelAvailableError("All models have open circuit breakers")
 
         # Filter out models that cannot handle context size
@@ -170,8 +231,8 @@ class ModelRouter:
         primary = scored[0][0]
         fallbacks = [m for m, _ in scored[1:3]]
 
-        # Determine LLM path
-        llm_path = LLMPath.OPENCODE if task.requires_tools else LLMPath.LITELLM
+        # Determine LLM path - all calls go through OpenCode
+        llm_path = LLMPath.OPENCODE
 
         # Estimate cost
         estimated_tokens = self._estimate_tokens(task)
@@ -204,7 +265,7 @@ class ModelRouter:
 
         primary = scored[0][0]
         fallbacks = [m for m, _ in scored[1:3]]
-        llm_path = LLMPath.OPENCODE if task.requires_tools else LLMPath.LITELLM
+        llm_path = LLMPath.OPENCODE
 
         return ModelSelection(
             primary=primary,
@@ -221,10 +282,7 @@ class ModelRouter:
 
         # 2. Context fit (20%)
         context_needed = CONTEXT_SIZE_TOKENS[task.context_size]
-        if context_needed > model.context_window:
-            context_fit = 0.0
-        else:
-            context_fit = min(1.0, model.context_window / context_needed)
+        context_fit = 0.0 if context_needed > model.context_window else min(1.0, model.context_window / context_needed)
 
         # 3. Speed match (15%)
         speed_score = SPEED_MATCH_SCORE.get(

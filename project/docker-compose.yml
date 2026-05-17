@@ -1,6 +1,17 @@
+x-health: &health-defaults
+  interval: 30s
+  timeout: 10s
+  retries: 5
+  start_period: 60s
+
+x-restart: &restart-default
+  restart: unless-stopped
+
+
 services:
   postgres:
-    image: postgres:16
+    image: pgvector/pgvector:pg16
+    <<: *restart-default
     environment:
       POSTGRES_DB: ai_sdlc
       POSTGRES_USER: ai_sdlc_user
@@ -12,26 +23,28 @@ services:
       - "5432:5432"
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ai_sdlc_user -d ai_sdlc"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-      start_period: 30s
+      <<: *health-defaults
+    mem_limit: 2g
+    mem_reservation: 512m
 
   redis:
     image: redis:7-alpine
+    <<: *restart-default
     ports:
       - "6379:6379"
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
+      <<: *health-defaults
+    mem_limit: 512m
+    mem_reservation: 128m
 
   api:
     build: .
-    command: uvicorn services.orchestrator.main:app --reload --host 0.0.0.0 --port 8000
+    <<: *restart-default
+    command: uvicorn services.orchestrator.main:app --reload --host 0.0.0.0 --port 8000 --log-level debug
     volumes:
       - .:/app
+      - api_data:/app/data
     ports:
       - "8000:8000"
     environment:
@@ -39,11 +52,51 @@ services:
       REDIS_URL: redis://redis:6379/0
       SECRET_KEY: dev_secret_key_change_in_production
       LOG_LEVEL: debug
+      APP_NAME: AI SDLC Orchestrator
+      APP_VERSION: 5.0.0
     depends_on:
       postgres:
         condition: service_healthy
       redis:
         condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
+      <<: *health-defaults
+    mem_limit: 2g
+    mem_reservation: 512m
+
+  dashboard:
+    image: node:20-alpine
+    <<: *restart-default
+    working_dir: /app
+    command: sh -c "if [ -f package-lock.json ]; then npm ci --legacy-peer-deps; elif [ ! -d node_modules/.bin ]; then npm install --legacy-peer-deps; fi && npm run dev"
+    volumes:
+      - ./apps/dashboard:/app
+    ports:
+      - "3000:3000"
+    environment:
+      NEXT_PUBLIC_API_URL: http://api:8000/api/v1
+    depends_on:
+      api:
+        condition: service_started
+    mem_limit: 1g
+    mem_reservation: 256m
+
+  nginx:
+    image: nginx:1.25-alpine
+    <<: *restart-default
+    ports:
+      - "80:80"
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf:ro
+    depends_on:
+      api:
+        condition: service_healthy
+      dashboard:
+        condition: service_started
+    mem_limit: 256m
+    mem_reservation: 128m
 
 volumes:
   pgdata:
+  api_data:

@@ -1,12 +1,14 @@
-import pytest
 from uuid import uuid4
 
-from shared.schemas.project import ProjectCreate, ProjectUpdate
-from shared.schemas.module import ModuleCreate, ModuleUpdate
-from shared.schemas.task import TaskCreate, TaskUpdate, StateTransitionRequest
-from shared.models.project import ProjectStatus
+import pytest
+from pydantic import ValidationError
+
 from shared.models.module import ModuleStatus
-from shared.models.task import TaskStatus, TaskPriority, RiskLevel
+from shared.models.project import ProjectStatus
+from shared.models.task import TaskPriority, TaskStatus
+from shared.schemas.module import ModuleCreate, ModuleUpdate
+from shared.schemas.project import ProjectCreate, ProjectUpdate
+from shared.schemas.task import StateTransitionRequest, TaskCreate, TaskUpdate
 
 
 class TestProjectSchemas:
@@ -21,7 +23,7 @@ class TestProjectSchemas:
         assert data.tech_stack == ["Python", "FastAPI"]
 
     def test_project_create_name_required(self):
-        with pytest.raises(Exception):
+        with pytest.raises(ValidationError):
             ProjectCreate()
 
     def test_project_update_partial(self):

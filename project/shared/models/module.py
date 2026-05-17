@@ -1,11 +1,13 @@
-from shared.models.base import Base
-from sqlalchemy import Column, String, Text, Enum, ForeignKey, UniqueConstraint
-from sqlalchemy.dialects.postgresql import UUID
-from sqlalchemy.orm import relationship
 import enum
 
+from sqlalchemy import Column, Enum, ForeignKey, String, Text, UniqueConstraint
+from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy.orm import relationship
 
-class ModuleStatus(str, enum.Enum):
+from shared.models.base import Base
+
+
+class ModuleStatus(enum.StrEnum):
     PENDING = "PENDING"
     IN_PROGRESS = "IN_PROGRESS"
     BLOCKED = "BLOCKED"
@@ -19,7 +21,7 @@ class Module(Base):
     project_id = Column(UUID(as_uuid=True), ForeignKey("projects.id", ondelete="CASCADE"), nullable=False)
     name = Column(String(255), nullable=False)
     description = Column(Text)
-    status = Column(Enum(ModuleStatus), nullable=False, default=ModuleStatus.PENDING)
+    status = Column(Enum(ModuleStatus, name="module_status"), nullable=False, default=ModuleStatus.PENDING)
 
     __table_args__ = (
         UniqueConstraint("project_id", "name", name="uq_module_project_name"),

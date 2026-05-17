@@ -1,25 +1,27 @@
-from shared.models.base import Base
-from sqlalchemy import Column, String, Text, Enum, ForeignKey, Float, Integer, Boolean, Date
-from sqlalchemy.dialects.postgresql import UUID, JSON
-from sqlalchemy.orm import relationship
 import enum
 
+from sqlalchemy import Boolean, Column, Date, Enum, Float, ForeignKey, Integer, String, Text
+from sqlalchemy.dialects.postgresql import JSON, UUID
+from sqlalchemy.orm import relationship
 
-class AuditResult(str, enum.Enum):
+from shared.models.base import Base
+
+
+class AuditResult(enum.StrEnum):
     SUCCESS = "SUCCESS"
     FAILURE = "FAILURE"
     APPROVED = "APPROVED"
     REJECTED = "REJECTED"
 
 
-class InstructionType(str, enum.Enum):
+class InstructionType(enum.StrEnum):
     ADVICE = "advice"
     WARNING = "warning"
     DECISION = "decision"
     PATTERN = "pattern"
 
 
-class LLMCallStatus(str, enum.Enum):
+class LLMCallStatus(enum.StrEnum):
     PENDING = "pending"
     COMPLETED = "completed"
     FAILED = "failed"
@@ -49,7 +51,7 @@ class AuditLog(Base):
     actor_type = Column(String(50), nullable=False, default="agent")
     input = Column(JSON, default=lambda: {})
     output = Column(JSON, default=lambda: {})
-    result = Column(Enum(AuditResult), nullable=False)
+    result = Column(Enum(AuditResult, name="audit_result"), nullable=False)
     message = Column(Text)
 
     task = relationship("Task", back_populates="audit_logs")
@@ -59,7 +61,7 @@ class MentorInstruction(Base):
     __tablename__ = "mentor_instructions"
 
     task_id = Column(UUID(as_uuid=True), ForeignKey("tasks.id", ondelete="SET NULL"))
-    instruction_type = Column(Enum(InstructionType), nullable=False)
+    instruction_type = Column(Enum(InstructionType, name="instruction_type"), nullable=False)
     content = Column(Text, nullable=False)
     context = Column(JSON, default=lambda: {})
     applied = Column(Boolean, nullable=False, default=False)
@@ -95,6 +97,7 @@ class Workflow(Base):
     __tablename__ = "workflows"
 
     project_id = Column(UUID(as_uuid=True), ForeignKey("projects.id", ondelete="CASCADE"), nullable=False)
+    task_id = Column(UUID(as_uuid=True), ForeignKey("tasks.id", ondelete="CASCADE"), nullable=True)
     name = Column(String(255), nullable=False)
     status = Column(String(50), nullable=False, default="RUNNING")
     current_node = Column(String(100))
@@ -107,12 +110,12 @@ class Workflow(Base):
     project = relationship("Project", back_populates="workflows")
 
 
-class DeploymentEnv(str, enum.Enum):
+class DeploymentEnv(enum.StrEnum):
     STAGING = "staging"
     PRODUCTION = "production"
 
 
-class DeploymentStatus(str, enum.Enum):
+class DeploymentStatus(enum.StrEnum):
     PENDING = "pending"
     BUILDING = "building"
     DEPLOYING = "deploying"
@@ -125,9 +128,9 @@ class Deployment(Base):
     __tablename__ = "deployments"
 
     task_id = Column(UUID(as_uuid=True), ForeignKey("tasks.id", ondelete="SET NULL"))
-    environment = Column(Enum(DeploymentEnv), nullable=False, default=DeploymentEnv.STAGING)
+    environment = Column(Enum(DeploymentEnv, name="deployment_env"), nullable=False, default=DeploymentEnv.STAGING)
     image_tag = Column(String(255), nullable=False)
-    status = Column(Enum(DeploymentStatus), nullable=False, default=DeploymentStatus.PENDING)
+    status = Column(Enum(DeploymentStatus, name="deployment_status"), nullable=False, default=DeploymentStatus.PENDING)
     url = Column(String(500))
     logs = Column(Text)
     deployed_by = Column(String(100))
@@ -148,7 +151,7 @@ class CostTracking(Base):
     output_tokens = Column(Integer, nullable=False, default=0)
     cost_usd = Column(Float, nullable=False, default=0.0)
     latency_ms = Column(Integer, nullable=False, default=0)
-    status = Column(Enum(LLMCallStatus), nullable=False, default=LLMCallStatus.COMPLETED)
+    status = Column(Enum(LLMCallStatus, name="llm_call_status"), nullable=False, default=LLMCallStatus.COMPLETED)
     error_message = Column(Text)
 
     task = relationship("Task", back_populates="cost_records")
@@ -166,7 +169,7 @@ class LLMCallLog(Base):
     input_tokens = Column(Integer, nullable=False, default=0)
     output_tokens = Column(Integer, nullable=False, default=0)
     latency_ms = Column(Integer, nullable=False, default=0)
-    status = Column(Enum(LLMCallStatus), nullable=False, default=LLMCallStatus.COMPLETED)
+    status = Column(Enum(LLMCallStatus, name="llm_call_status"), nullable=False, default=LLMCallStatus.COMPLETED)
     error_message = Column(Text)
     retry_count = Column(Integer, nullable=False, default=0)
     circuit_breaker_triggered = Column(Boolean, nullable=False, default=False)

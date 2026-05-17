@@ -1,10 +1,8 @@
-import pytest
 
 from shared.config.state_transitions import (
-    validate_transition,
-    is_terminal,
     get_valid_transitions,
-    TERMINAL_STATES,
+    is_terminal,
+    validate_transition,
 )
 
 

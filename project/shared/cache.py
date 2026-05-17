@@ -3,6 +3,7 @@ import logging
 from typing import Any
 
 import redis.asyncio as redis
+
 from shared.config.settings import get_settings
 
 logger = logging.getLogger(__name__)

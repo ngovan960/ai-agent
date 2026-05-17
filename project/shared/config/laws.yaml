@@ -1,0 +1,26 @@
+laws:
+  - id: law-001
+    name: "No Direct DB Access from Services"
+    description: "All database operations must go through the service layer, never directly from routers."
+    applies_to: ["specialist", "auditor"]
+    severity: "critical"
+  - id: law-002
+    name: "Async Everywhere"
+    description: "All I/O operations must be async. No blocking calls in the request path."
+    applies_to: ["specialist", "auditor", "gatekeeper"]
+    severity: "high"
+  - id: law-003
+    name: "Error Handling"
+    description: "Every function must handle errors gracefully. Never expose raw exceptions to the client."
+    applies_to: ["specialist", "auditor", "orchestrator"]
+    severity: "high"
+  - id: law-004
+    name: "Type Safety"
+    description: "All function parameters and return types must be annotated with Python type hints."
+    applies_to: ["specialist", "auditor"]
+    severity: "medium"
+  - id: law-005
+    name: "No Circular Dependencies"
+    description: "Modules and tasks must not have circular dependencies. Always use dependency injection."
+    applies_to: ["orchestrator", "specialist"]
+    severity: "critical"

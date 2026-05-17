@@ -1,0 +1,43 @@
+groups:
+  - name: sdlc_alerts
+    interval: 30s
+    rules:
+      - alert: HighTaskFailureRate
+        expr: rate(tasks_total{status="FAILED"}[5m]) / rate(tasks_total[5m]) > 0.1
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Task failure rate above 10%"
+
+      - alert: MentorQuotaExhausted
+        expr: mentor_quota_remaining < 2
+        for: 1m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Mentor quota almost exhausted"
+
+      - alert: HighRetryRate
+        expr: rate(retries_total[5m]) > 5
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High retry rate detected"
+
+      - alert: LowConfidence
+        expr: avg(task_confidence) < 0.4
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Average task confidence below 40%"
+
+      - alert: CostSpike
+        expr: rate(cost_usd_total[1h]) > 0.1
+        for: 5m
+        labels:
+          severity: info
+        annotations:
+          summary: "Cost rate above $0.10/hour"

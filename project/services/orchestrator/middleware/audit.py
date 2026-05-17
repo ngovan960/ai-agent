@@ -1,11 +1,12 @@
-import time
+"""Audit middleware that logs API requests and broadcasts real-time updates."""
+
+import asyncio
 import json
 import logging
-from uuid import UUID
+import time
 
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.requests import Request
-from starlette.responses import Response
 
 logger = logging.getLogger(__name__)
 
@@ -27,5 +28,17 @@ class AuditMiddleware(BaseHTTPMiddleware):
                 "client": request.client.host if request.client else None,
             }
             logger.info(json.dumps(log_entry))
+
+            from services.orchestrator.routers.dashboard import broadcast
+
+            def _handle_broadcast_error(t):
+                if not t.cancelled() and t.exception():
+                    logger.debug(f"Broadcast failed: {t.exception()}")
+
+            task = asyncio.create_task(broadcast({
+                "type": "api_request",
+                "data": log_entry,
+            }))
+            task.add_done_callback(_handle_broadcast_error)
 
         return response

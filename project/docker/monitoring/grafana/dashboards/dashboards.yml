@@ -1,0 +1,11 @@
+apiVersion: 1
+
+providers:
+  - name: "SDLC Orchestrator"
+    orgId: 1
+    folder: "SDLC"
+    type: file
+    disableDeletion: false
+    editable: true
+    options:
+      path: /etc/grafana/provisioning/dashboards

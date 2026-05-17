@@ -259,16 +259,16 @@ Instrument agents và workflow với OpenTelemetry.
 
 | # | Task | Status | Notes |
 |---|---|---|---|
-| 7.1 | Frontend Setup | ⬜ | Next.js, Tailwind, Zustand, Recharts |
-| 7.2 | Dashboard Pages | ⬜ | 8 pages |
-| 7.3 | Dashboard Components | ⬜ | 7 reusable components |
-| 7.4 | Dashboard API Integration | ⬜ | WebSocket, pagination, filtering |
-| 7.5 | Monitoring Stack | ⬜ | Prometheus, Loki, Grafana |
-| 7.6 | Observability Integration | ⬜ | OpenTelemetry |
+| 7.1 | Frontend Setup | ✅ | Next.js, Tailwind, Zustand, Recharts — apps/dashboard/ |
+| 7.2 | Dashboard Pages | ✅ | 8 pages: /, /tasks, /workflow, /agents, /cost, /alerts, /audit, /memory |
+| 7.3 | Dashboard Components | ✅ | TaskCard, ConfidenceGauge, RetryCounter, Charts, AgentActivityFeed, AlertBanner, Sidebar |
+| 7.4 | Dashboard API Integration | ✅ | WebSocket /ws, /dashboard/summary, /dashboard/* endpoints |
+| 7.5 | Monitoring Stack | ✅ | docker/monitoring/: Prometheus, Loki, Grafana docker-compose |
+| 7.6 | Observability Integration | ✅ | shared/observability/: tracing, metrics, structured logging |
 
 **Definition of Done cho Phase 7:**
-- [ ] Dashboard chạy được với 8 pages
-- [ ] Real-time updates hoạt động
-- [ ] Grafana dashboards hoạt động
-- [ ] OpenTelemetry tracing hoạt động
-- [ ] Alert rules configured
+- [x] Dashboard chạy được với 8 pages
+- [x] Real-time updates hoạt động (WebSocket)
+- [x] Grafana dashboards hoạt động (auto-provisioning)
+- [x] OpenTelemetry tracing hoạt động (có flag OTEL_ENABLED)
+- [x] Alert rules configured (trong grafana dashboard JSON)

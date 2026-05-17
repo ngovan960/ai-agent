@@ -1,13 +1,13 @@
-from shared.models.base import Base
-from sqlalchemy import (
-    Column, String, Text, Enum, ForeignKey, Float, Integer, UniqueConstraint, CheckConstraint
-)
-from sqlalchemy.dialects.postgresql import UUID, JSON
-from sqlalchemy.orm import relationship
 import enum
 
+from sqlalchemy import CheckConstraint, Column, Enum, Float, ForeignKey, Integer, String, Text, UniqueConstraint
+from sqlalchemy.dialects.postgresql import JSON, UUID
+from sqlalchemy.orm import relationship
 
-class TaskStatus(str, enum.Enum):
+from shared.models.base import Base
+
+
+class TaskStatus(enum.StrEnum):
     NEW = "NEW"
     ANALYZING = "ANALYZING"
     PLANNING = "PLANNING"
@@ -21,14 +21,14 @@ class TaskStatus(str, enum.Enum):
     CANCELLED = "CANCELLED"
 
 
-class TaskPriority(str, enum.Enum):
+class TaskPriority(enum.StrEnum):
     LOW = "LOW"
     MEDIUM = "MEDIUM"
     HIGH = "HIGH"
     CRITICAL = "CRITICAL"
 
 
-class RiskLevel(str, enum.Enum):
+class RiskLevel(enum.StrEnum):
     LOW = "LOW"
     MEDIUM = "MEDIUM"
     HIGH = "HIGH"
@@ -43,14 +43,14 @@ class Task(Base):
     title = Column(String(500), nullable=False)
     description = Column(Text)
     owner = Column(String(100))
-    priority = Column(Enum(TaskPriority), nullable=False, default=TaskPriority.MEDIUM)
-    status = Column(Enum(TaskStatus), nullable=False, default=TaskStatus.NEW)
+    priority = Column(Enum(TaskPriority, name="task_priority"), nullable=False, default=TaskPriority.MEDIUM)
+    status = Column(Enum(TaskStatus, name="task_status"), nullable=False, default=TaskStatus.NEW)
     confidence = Column(Float, default=0.0)
     retries = Column(Integer, nullable=False, default=0)
     max_retries = Column(Integer, nullable=False, default=2)
     expected_output = Column(Text)
     risk_score = Column(Float, default=0.0)
-    risk_level = Column(Enum(RiskLevel), nullable=False, default=RiskLevel.LOW)
+    risk_level = Column(Enum(RiskLevel, name="risk_level"), nullable=False, default=RiskLevel.LOW)
     cancellation_reason = Column(Text)
     failure_reason = Column(Text)
     created_by = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"))
@@ -85,6 +85,7 @@ class Task(Base):
     deployments = relationship("Deployment", back_populates="task")
     cost_records = relationship("CostTracking", back_populates="task")
     llm_call_logs = relationship("LLMCallLog", back_populates="task")
+    law_violations = relationship("LawViolation", back_populates="task")
 
 
 class TaskOutput(Base):

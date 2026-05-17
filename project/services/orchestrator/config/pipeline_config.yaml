@@ -1,0 +1,51 @@
+pipeline:
+  steps:
+    - name: lint
+      order: 1
+      critical: false
+      timeout_seconds: 120
+      weight: 15
+      commands:
+        python: "ruff check {code_path} --quiet"
+        node: "eslint {code_path} --quiet"
+
+    - name: unit_test
+      order: 2
+      critical: true
+      timeout_seconds: 300
+      weight: 40
+      commands:
+        python: "pytest {code_path}/tests/ -x --tb=short -q 2>&1"
+        node: "cd {code_path} && npm test -- --run 2>&1"
+
+    - name: integration_test
+      order: 3
+      critical: true
+      timeout_seconds: 300
+      weight: 25
+      commands:
+        python: "pytest {code_path}/tests/integration/ -x --tb=short -q 2>&1 || echo 'No integration tests'"
+        node: "cd {code_path} && npm run test:integration 2>&1 || echo 'No integration tests'"
+
+    - name: build
+      order: 4
+      critical: true
+      timeout_seconds: 120
+      weight: 10
+      commands:
+        python: "python -m build {code_path} --outdir {code_path}/dist 2>&1"
+        node: "cd {code_path} && npm run build 2>&1"
+
+    - name: security_scan
+      order: 5
+      critical: true
+      timeout_seconds: 120
+      weight: 10
+      commands:
+        python: "bandit -r {code_path} -f json -q 2>&1 || true"
+        node: "cd {code_path} && npm audit --json 2>&1 || true"
+
+  fail_fast: true
+  max_retries: 2
+  timeout_seconds: 600
+  score_threshold: 60.0

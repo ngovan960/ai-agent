@@ -1,7 +1,7 @@
 from logging.config import fileConfig
 
-from sqlalchemy import engine_from_config
-from sqlalchemy import pool
+from sqlalchemy import engine_from_config, pool
+
 from alembic import context
 
 config = context.config
@@ -9,10 +9,12 @@ config = context.config
 if config.config_file_name is not None:
     fileConfig(config.config_file_name)
 
-from shared.models import Base
+from shared.models import Base  # noqa: E402
+
 target_metadata = Base.metadata
 
-from shared.config.settings import get_settings
+from shared.config.settings import get_settings  # noqa: E402
+
 settings = get_settings()
 config.set_main_option("sqlalchemy.url", settings.DATABASE_URL.replace("+asyncpg", ""))
 
