@@ -77,7 +77,7 @@ class OpenCodeAdapter:
                         agent_id=agent_id,
                         status="blocked",
                         error=str(e),
-                        duration_ms=(datetime.utcnow() - start).total_seconds() * 1000,
+                        duration_ms=(datetime.now(UTC) - start).total_seconds() * 1000,
                     )
 
             modified = []
@@ -93,14 +93,14 @@ class OpenCodeAdapter:
                         agent_id=agent_id,
                         status="blocked",
                         error=str(e),
-                        duration_ms=(datetime.utcnow() - start).total_seconds() * 1000,
+                        duration_ms=(datetime.now(UTC) - start).total_seconds() * 1000,
                     )
 
             test_results = None
             if verification:
                 test_results = await self.run_bash(verification)
 
-            duration = (datetime.utcnow() - start).total_seconds() * 1000
+            duration = (datetime.now(UTC) - start).total_seconds() * 1000
 
             return OpenCodeResult(
                 agent_id=agent_id,

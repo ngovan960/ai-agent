@@ -1,7 +1,7 @@
-"""Tests for Sandboxed OpenCode Adapter (Security Fix #1)."""
-
-from unittest.mock import MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 from uuid import uuid4
+
+import pytest
 
 from services.execution.sandboxed_opencode_adapter import (
     SandboxedOpenCodeAdapter,
@@ -35,7 +35,7 @@ class TestProtectedPathDetection:
 
 
 class TestSandboxSession:
-    @patch("services.execution.sandboxed_opencode_adapter.subprocess.run")
+    @patch.object(SandboxedOpenCodeAdapter, "_run_cmd_async", new_callable=AsyncMock)
     def test_create_session_no_project_path(self, mock_run):
         adapter = SandboxedOpenCodeAdapter(target_project_path=None)
         import asyncio
@@ -47,12 +47,9 @@ class TestSandboxSession:
         finally:
             loop.close()
 
-    @patch("services.execution.sandboxed_opencode_adapter.subprocess.run")
+    @patch.object(SandboxedOpenCodeAdapter, "_run_cmd_async", new_callable=AsyncMock)
     def test_create_session_docker_failure(self, mock_run):
-        mock_result = MagicMock()
-        mock_result.returncode = 1
-        mock_result.stderr = "docker not found"
-        mock_run.return_value = mock_result
+        mock_run.return_value = (1, "", "docker not found")
 
         adapter = SandboxedOpenCodeAdapter(target_project_path="/tmp/project")
         import asyncio
@@ -65,12 +62,9 @@ class TestSandboxSession:
 
 
 class TestSandboxFileOperations:
-    @patch("services.execution.sandboxed_opencode_adapter.subprocess.run")
+    @patch.object(SandboxedOpenCodeAdapter, "_run_cmd_async", new_callable=AsyncMock)
     def test_write_protected_path_blocked(self, mock_run):
-        mock_result = MagicMock()
-        mock_result.returncode = 0
-        mock_result.stdout = "container_id"
-        mock_run.return_value = mock_result
+        mock_run.return_value = (0, "container_id", "")
 
         adapter = SandboxedOpenCodeAdapter(target_project_path="/tmp/project")
         import asyncio
@@ -84,12 +78,9 @@ class TestSandboxFileOperations:
         finally:
             loop.close()
 
-    @patch("services.execution.sandboxed_opencode_adapter.subprocess.run")
+    @patch.object(SandboxedOpenCodeAdapter, "_run_cmd_async", new_callable=AsyncMock)
     def test_read_protected_path_blocked(self, mock_run):
-        mock_result = MagicMock()
-        mock_result.returncode = 0
-        mock_result.stdout = "container_id"
-        mock_run.return_value = mock_result
+        mock_run.return_value = (0, "container_id", "")
 
         adapter = SandboxedOpenCodeAdapter(target_project_path="/tmp/project")
         import asyncio
@@ -105,12 +96,9 @@ class TestSandboxFileOperations:
 
 
 class TestSandboxBash:
-    @patch("services.execution.sandboxed_opencode_adapter.subprocess.run")
+    @patch.object(SandboxedOpenCodeAdapter, "_run_cmd_async", new_callable=AsyncMock)
     def test_dangerous_command_blocked(self, mock_run):
-        mock_result = MagicMock()
-        mock_result.returncode = 0
-        mock_result.stdout = "container_id"
-        mock_run.return_value = mock_result
+        mock_run.return_value = (0, "container_id", "")
 
         adapter = SandboxedOpenCodeAdapter(target_project_path="/tmp/project")
         import asyncio
@@ -127,12 +115,9 @@ class TestSandboxBash:
 
 
 class TestSandboxExecute:
-    @patch("services.execution.sandboxed_opencode_adapter.subprocess.run")
+    @patch.object(SandboxedOpenCodeAdapter, "_run_cmd_async", new_callable=AsyncMock)
     def test_execute_blocks_protected_files(self, mock_run):
-        mock_result = MagicMock()
-        mock_result.returncode = 0
-        mock_result.stdout = "container_id"
-        mock_run.return_value = mock_result
+        mock_run.return_value = (0, "container_id", "")
 
         adapter = SandboxedOpenCodeAdapter(target_project_path="/tmp/project")
         import asyncio

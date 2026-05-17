@@ -206,16 +206,26 @@ class TestWorkflowEngineCore:
         task_id = uuid4()
         other_task_id = uuid4()
         
+        from shared.models.task import Task, TaskStatus
+        mock_task = MagicMock(spec=Task)
+        mock_task.id = other_task_id
+        mock_task.title = "Test title"
+        mock_task.description = "test"
+        mock_task.status = TaskStatus.DONE
+
         mock_wf = MagicMock()
         mock_wf.task_id = other_task_id
-        mock_wf.state = {
-            "nodes": [{"node": "gatekeeper", "output_state": "ANALYZING"}]
-        }
-        
-        mock_result = MagicMock()
-        mock_result.scalars.return_value.all.return_value = [mock_wf]
-        mock_db.execute = AsyncMock(return_value=mock_result)
+        mock_wf.status = "COMPLETED"
+
+        mock_result_tasks = MagicMock()
+        mock_result_tasks.scalars.return_value.all.return_value = [mock_task]
+
+        mock_result_wf = MagicMock()
+        mock_result_wf.scalar_one_or_none.return_value = mock_wf
+
+        mock_db.execute = AsyncMock(side_effect=[mock_result_tasks, mock_result_wf])
         
         result = await mock_engine.check_existing_task(task_id, "test")
         assert result is not None
         assert result["existing_task_id"] == str(other_task_id)
+        assert result["cached"] is True

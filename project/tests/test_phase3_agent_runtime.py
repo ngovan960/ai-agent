@@ -253,9 +253,9 @@ class TestOpenCodeAdapter:
 
         from services.execution.opencode_adapter import OpenCodeAdapter
 
-        adapter = OpenCodeAdapter()
         with tempfile.TemporaryDirectory() as tmpdir:
-            path = os.path.join(tmpdir, "test.txt")
+            adapter = OpenCodeAdapter(project_root=tmpdir)
+            path = "src/test.txt"
             written = await adapter.write_file(path, "hello world")
             assert written is True
 
@@ -268,9 +268,9 @@ class TestOpenCodeAdapter:
 
         from services.execution.opencode_adapter import OpenCodeAdapter
 
-        adapter = OpenCodeAdapter()
         with tempfile.TemporaryDirectory() as tmpdir:
-            path = os.path.join(tmpdir, "edit_test.txt")
+            adapter = OpenCodeAdapter(project_root=tmpdir)
+            path = "src/edit_test.txt"
             await adapter.write_file(path, "old content")
             await adapter.edit_file(path, "old content", "new content")
 
@@ -283,9 +283,9 @@ class TestOpenCodeAdapter:
 
         from services.execution.opencode_adapter import OpenCodeAdapter
 
-        adapter = OpenCodeAdapter()
         with tempfile.TemporaryDirectory() as tmpdir:
-            path = os.path.join(tmpdir, "missing.txt")
+            adapter = OpenCodeAdapter(project_root=tmpdir)
+            path = "src/missing.txt"
             result = await adapter.edit_file(path, "old", "new")
             assert result is False
 

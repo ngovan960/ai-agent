@@ -9,6 +9,7 @@ from shared.models.registry import Retry
 logger = logging.getLogger(__name__)
 
 MAX_RETRIES_DEFAULT = 2
+MAX_RETRIES = MAX_RETRIES_DEFAULT
 
 
 async def get_retries(db: AsyncSession, task_id: UUID, page: int = 1, page_size: int = 20):
